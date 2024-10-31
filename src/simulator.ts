@@ -1,3 +1,21 @@
+/**
+ * Performance Test Results:
+ * 
+ * Initial Version:
+ * - Date: 2024-10-31
+ * - Description: Initial implementation of the World class with particle simulation. No optimizations.
+ * - Particle Count at 60fps: 1700
+ * - Notes: Initial performance baseline.
+ * 
+ * Subsequent Changes:
+ * 
+ * Version 1.1:
+ * - Date: 2024-10-31
+ * - Description: Added particle pooling to reuse particles instead of creating new ones.
+ * - Particle Count at 60fps: ???
+ * - Notes: 
+ * 
+ */
 import { Force } from "./force";
 import { Particle } from "./particle";
 import { Vector } from "./vector";
@@ -34,8 +52,10 @@ const defaultSettings: WorldSettings = {
   fillStyle: 'blue',
 };
 
+
 export class World {
-  particles: Particle[];
+  activeParticles: Particle[] = [];
+  particlePool: Particle[] = [];
   canvas: HTMLCanvasElement;
   ctx: CanvasRenderingContext2D;
   window: Window;
@@ -58,7 +78,6 @@ export class World {
     this.canvas.width = window.innerWidth - 50;
 
     this.window = window;
-    this.particles = [];
 
     this.window.addEventListener('resize', () => {
       this.canvas.height = this.window.innerHeight - 50;
@@ -75,8 +94,16 @@ export class World {
     this._settings = { ...this._settings, ...settings };
   }
 
+  getParticleFromPool(): Particle {
+    return this.particlePool.pop() || new Particle(0, 0, new Vector(0, 0), 0, '', 0);
+  }
+
+  returnParticleToPool(particle: Particle): void {
+    this.particlePool.push(particle);
+  }
+
   get particleCount() {
-    return this.particles.length;
+    return this.activeParticles.length;
   }
 
   addForce(force: Force) {
@@ -88,21 +115,35 @@ export class World {
   }
 
   addParticle(particle: Particle) {
-    this.particles.push(particle);
+    this.activeParticles.push(particle);
   }
 
   update(dt: number) {
-    this.particles = this.particles.filter(particle => !particle.isDead);
-
-    this.particles.forEach(particle => {
-      particle.update(dt)
+    let i = 0;
+    while (i < this.activeParticles.length) {
+      const particle = this.activeParticles[i];
+      
+      if (particle.isDead) {
+        // Move to pool and remove from active
+        this.returnParticleToPool(particle);
+        this.activeParticles[i] = this.activeParticles[this.activeParticles.length - 1];
+        this.activeParticles.pop();
+        continue;
+      }
+      
+      particle.update(dt);
       this._forces.forEach(force => {
         particle.velocity = particle.velocity.add(force);
       });
+      
       this.handleParticleCollidingWithBoundingBox(particle, this.canvas.height, this.canvas.width, this._settings.elasticity);
-    });
+      i++;
+    }
 
-    this.handleParticlesCollidingWithOneAnother(this._settings.elasticity);
+    if (this._settings.enableParticleCollision) {
+      this.handleParticlesCollidingWithOneAnother(this._settings.elasticity);
+    }
+
     this.refillParticles();
   }
 
@@ -128,7 +169,9 @@ export class World {
   draw() {
     this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
     this.ctx.beginPath();
-    this.particles.forEach(particle => particle.drawStar(this.ctx));
+    for (let i = 0; i < this.activeParticles.length; i++) {
+      this.activeParticles[i].drawStar(this.ctx);
+    }
     this.ctx.closePath();
   }
 
@@ -138,16 +181,17 @@ export class World {
     const startingAngle = getRandomNumberBetween(this._settings.minStartingAngle, this._settings.maxStartingAngle);
     const velocity = getRandomNumberBetween(this._settings.minParticleVelocity, this._settings.maxParticleVelocity);
     const vVector = Vector.fromAngle(startingAngle, velocity);
-    const vx = vVector.x;
-    const vy = vVector.y;
     const radius = this.getRadius();
     const fillStyle = this.getFillStyle();
     const maxLifeSpan = getRandomNumberBetween(this._settings.minParticleLifeSpan, this._settings.maxParticleLifeSpan);
-    this.addParticle(new Particle(x, y, new Vector(vx, vy), radius, fillStyle, maxLifeSpan));
+
+    const particle = this.getParticleFromPool();
+    particle.reset(x, y, new Vector(vVector.x, vVector.y), radius, fillStyle, maxLifeSpan);
+    this.activeParticles.push(particle);
   }
 
   private refillParticles() {
-    const particleCount = this.particles.length;
+    const particleCount = this.activeParticles.length;
     const minParticleCount = this._settings.minParticleCount;
     const maxParticleCount = this._settings.maxParticleCount;
     if (particleCount < maxParticleCount) {
@@ -174,10 +218,10 @@ export class World {
     if (!this._settings.enableParticleCollision) {
       return;
     }
-    for (let i = 0; i < this.particles.length; i++) {
-      for (let j = i + 1; j < this.particles.length; j++) {
-        const p1 = this.particles[i];
-        const p2 = this.particles[j];
+    for (let i = 0; i < this.activeParticles.length; i++) {
+      for (let j = i + 1; j < this.activeParticles.length; j++) {
+        const p1 = this.activeParticles[i];
+        const p2 = this.activeParticles[j];
 
         if (p1.hasCollidedWith(p2)) {
           const pos1 = new Vector(p1.x, p1.y);
