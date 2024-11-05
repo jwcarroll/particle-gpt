@@ -9,10 +9,10 @@ export class Particle {
   maxLifeSpan: number | null;
   fillStyle: string;
 
-  private timeAlive: number = 0;
+  private _timeAlive: number = 0;
 
   public get isDead() {
-    return this.maxLifeSpan !== null && this.timeAlive > this.maxLifeSpan;
+    return this.maxLifeSpan !== null && this._timeAlive > this.maxLifeSpan;
   }
 
   constructor(x: number, y: number, velocity: Vector, radius: number, fillStyle: string = 'blue', maxLifeSpan?: number) {
@@ -24,20 +24,24 @@ export class Particle {
     this.maxLifeSpan = maxLifeSpan || null;
   }
 
+  public get timeAlive() {
+    return this._timeAlive;
+  }
+
   update(dt: number) {
-    this.timeAlive += dt;
+    this._timeAlive += dt;
 
     this.x += this.velocity.x * dt;
     this.y += this.velocity.y * dt;
   }
 
-  draw(ctx: CanvasRenderingContext2D) {
+  draw(ctx: CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D) {
     ctx.beginPath();
     ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
 
     //decrease opacity as particle ages
     if (this.maxLifeSpan !== null) {
-      ctx.globalAlpha = 1 - this.timeAlive / this.maxLifeSpan;
+      ctx.globalAlpha = 1 - this._timeAlive / this.maxLifeSpan;
     }
     ctx.fillStyle = this.fillStyle;
     ctx.fill();
@@ -48,10 +52,10 @@ export class Particle {
     this.x = x;
     this.y = y;
     this.velocity = velocity;
-    this.radius = radius; 
+    this.radius = radius;
     this.fillStyle = fillStyle;
     this.maxLifeSpan = maxLifeSpan;
-    this.timeAlive = 0;
+    this._timeAlive = 0;
   }
 
   hasCollidedWith(particle: Particle) {
@@ -77,7 +81,7 @@ export class Particle {
 
     //decrease opacity as particle ages
     if (this.maxLifeSpan !== null) {
-      ctx.globalAlpha = 1 - this.timeAlive / this.maxLifeSpan;
+      ctx.globalAlpha = 1 - this._timeAlive / this.maxLifeSpan;
     }
     ctx.fillStyle = this.fillStyle;
     ctx.fill();

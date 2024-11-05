@@ -4,7 +4,7 @@
  * Initial Version:
  * - Date: 2024-10-31
  * - Description: Initial implementation of the World class with particle simulation. No optimizations.
- * - Particle Count at 60fps: 1700
+ * - Particle Count at 60fps: 1200
  * - Notes: Initial performance baseline.
  * 
  * Subsequent Changes:
@@ -12,8 +12,8 @@
  * Version 1.1:
  * - Date: 2024-10-31
  * - Description: Added particle pooling to reuse particles instead of creating new ones.
- * - Particle Count at 60fps: ???
- * - Notes: 
+ * - Particle Count at 60fps: 1300
+ * - Notes: Didn't have a significant impact on FPS performance.
  * 
  */
 import { Force } from "./force";
@@ -42,7 +42,7 @@ const defaultSettings: WorldSettings = {
   minParticleRadius: 5,
   maxParticleRadius: 10,
   minParticleVelocity: 0,
-  maxParticleVelocity: 100,
+  maxParticleVelocity: 500,
   minStartingAngle: 0,
   maxStartingAngle: 360,
   minParticleLifeSpan: 1,
@@ -58,6 +58,8 @@ export class World {
   particlePool: Particle[] = [];
   canvas: HTMLCanvasElement;
   ctx: CanvasRenderingContext2D;
+  offscreenCanvas: OffscreenCanvas;
+  offscreenCtx: OffscreenCanvasRenderingContext2D;
   window: Window;
 
   private _settings: WorldSettings = { ...defaultSettings };
@@ -66,22 +68,29 @@ export class World {
 
   constructor(canvas: HTMLCanvasElement, window: Window) {
     this.canvas = canvas;
+    this.offscreenCanvas = new OffscreenCanvas(canvas.width, canvas.height);
     const ctx = canvas.getContext('2d');
+    const offscreenCtx = this.offscreenCanvas.getContext('2d');
 
-    if (!ctx) {
+    if (!ctx || !offscreenCtx) {
       throw new Error('Could not get canvas context');
     }
 
     this.ctx = ctx;
+    this.offscreenCtx = offscreenCtx;
 
     this.canvas.height = window.innerHeight - 50;
     this.canvas.width = window.innerWidth - 50;
+    this.offscreenCanvas.height = window.innerHeight - 50;
+    this.offscreenCanvas.width = window.innerWidth - 50;
 
     this.window = window;
 
     this.window.addEventListener('resize', () => {
       this.canvas.height = this.window.innerHeight - 50;
       this.canvas.width = this.window.innerWidth - 50;
+      this.offscreenCanvas.height = this.window.innerHeight - 50;
+      this.offscreenCanvas.width = this.window.innerWidth - 50;
     }
     );
   }
@@ -122,7 +131,7 @@ export class World {
     let i = 0;
     while (i < this.activeParticles.length) {
       const particle = this.activeParticles[i];
-      
+
       if (particle.isDead) {
         // Move to pool and remove from active
         this.returnParticleToPool(particle);
@@ -130,12 +139,12 @@ export class World {
         this.activeParticles.pop();
         continue;
       }
-      
+
       particle.update(dt);
       this._forces.forEach(force => {
         particle.velocity = particle.velocity.add(force);
       });
-      
+
       this.handleParticleCollidingWithBoundingBox(particle, this.canvas.height, this.canvas.width, this._settings.elasticity);
       i++;
     }
@@ -167,12 +176,13 @@ export class World {
   }
 
   draw() {
-    this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
-    this.ctx.beginPath();
+    this.offscreenCtx.clearRect(0, 0, this.offscreenCanvas.width, this.offscreenCanvas.height);
     for (let i = 0; i < this.activeParticles.length; i++) {
-      this.activeParticles[i].drawStar(this.ctx);
+      this.activeParticles[i].draw(this.offscreenCtx);
     }
-    this.ctx.closePath();
+
+    this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+    this.ctx.drawImage(this.offscreenCanvas, 0, 0);
   }
 
   private addRandomParticle() {
@@ -194,8 +204,17 @@ export class World {
     const particleCount = this.activeParticles.length;
     const minParticleCount = this._settings.minParticleCount;
     const maxParticleCount = this._settings.maxParticleCount;
-    if (particleCount < maxParticleCount) {
-      const particlesToAdd = getRandomNumberBetween(minParticleCount - particleCount, maxParticleCount - particleCount);
+
+    // If below minimum, add particles to reach minimum
+    if (particleCount < minParticleCount) {
+      const particlesToAdd = Math.min(10, minParticleCount - particleCount);
+      for (let i = 0; i < particlesToAdd; i++) {
+        this.addRandomParticle();
+      }
+    }
+    // If between min and max, occasionally add particles
+    else if (particleCount < maxParticleCount) { // 10% chance
+      const particlesToAdd = Math.min(30, maxParticleCount - particleCount);
       for (let i = 0; i < particlesToAdd; i++) {
         this.addRandomParticle();
       }

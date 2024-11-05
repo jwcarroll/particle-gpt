@@ -10,12 +10,13 @@
 		"vite": "vite"
 	},
 	"devDependencies": {
-		"@tweakpane/core": "^1.1.6",
-		"typescript": "^4.9.3",
+		"@tweakpane/core": "^2.0.4",
+		"typescript": "^5.6.3",
 		"vite": "^4.2.0"
 	},
 	"dependencies": {
+		"@tweakpane/plugin-essentials": "^0.2.1",
 		"particle-gpt": "file:",
-		"tweakpane": "^3.1.7"
+		"tweakpane": "^4.0.4"
 	}
 }
