@@ -21,6 +21,8 @@ import { Particle } from "./particle";
 import { Vector } from "./vector";
 
 export interface WorldSettings {
+  height: number;
+  width: number;
   minParticleCount: number;
   maxParticleCount: number;
   minParticleRadius: number;
@@ -37,6 +39,8 @@ export interface WorldSettings {
 }
 
 const defaultSettings: WorldSettings = {
+  height: 0,
+  width: 0,
   minParticleCount: 100,
   maxParticleCount: 1000,
   minParticleRadius: 5,
@@ -56,44 +60,10 @@ const defaultSettings: WorldSettings = {
 export class World {
   activeParticles: Particle[] = [];
   particlePool: Particle[] = [];
-  canvas: HTMLCanvasElement;
-  ctx: CanvasRenderingContext2D;
-  offscreenCanvas: OffscreenCanvas;
-  offscreenCtx: OffscreenCanvasRenderingContext2D;
-  window: Window;
 
   private _settings: WorldSettings = { ...defaultSettings };
 
   private _forces: Map<string, Force> = new Map();
-
-  constructor(canvas: HTMLCanvasElement, window: Window) {
-    this.canvas = canvas;
-    this.offscreenCanvas = new OffscreenCanvas(canvas.width, canvas.height);
-    const ctx = canvas.getContext('2d');
-    const offscreenCtx = this.offscreenCanvas.getContext('2d');
-
-    if (!ctx || !offscreenCtx) {
-      throw new Error('Could not get canvas context');
-    }
-
-    this.ctx = ctx;
-    this.offscreenCtx = offscreenCtx;
-
-    this.canvas.height = window.innerHeight - 50;
-    this.canvas.width = window.innerWidth - 50;
-    this.offscreenCanvas.height = window.innerHeight - 50;
-    this.offscreenCanvas.width = window.innerWidth - 50;
-
-    this.window = window;
-
-    this.window.addEventListener('resize', () => {
-      this.canvas.height = this.window.innerHeight - 50;
-      this.canvas.width = this.window.innerWidth - 50;
-      this.offscreenCanvas.height = this.window.innerHeight - 50;
-      this.offscreenCanvas.width = this.window.innerWidth - 50;
-    }
-    );
-  }
 
   getSettings() {
     return { ...this._settings };
@@ -145,7 +115,12 @@ export class World {
         particle.velocity = particle.velocity.add(force);
       });
 
-      this.handleParticleCollidingWithBoundingBox(particle, this.canvas.height, this.canvas.width, this._settings.elasticity);
+      this.handleParticleCollidingWithBoundingBox(
+        particle,
+        this._settings.height,
+        this._settings.width,
+        this._settings.elasticity);
+
       i++;
     }
 
@@ -175,19 +150,9 @@ export class World {
     }
   }
 
-  draw() {
-    this.offscreenCtx.clearRect(0, 0, this.offscreenCanvas.width, this.offscreenCanvas.height);
-    for (let i = 0; i < this.activeParticles.length; i++) {
-      this.activeParticles[i].draw(this.offscreenCtx);
-    }
-
-    this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
-    this.ctx.drawImage(this.offscreenCanvas, 0, 0);
-  }
-
   private addRandomParticle() {
-    const x = Math.random() * this.canvas.width;
-    const y = Math.random() * this.canvas.height;
+    const x = Math.random() * this._settings.width;
+    const y = Math.random() * this._settings.height;
     const startingAngle = getRandomNumberBetween(this._settings.minStartingAngle, this._settings.maxStartingAngle);
     const velocity = getRandomNumberBetween(this._settings.minParticleVelocity, this._settings.maxParticleVelocity);
     const vVector = Vector.fromAngle(startingAngle, velocity);

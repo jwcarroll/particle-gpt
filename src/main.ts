@@ -4,6 +4,8 @@ import { Force } from './force';
 import { Degree, Vector } from './vector';
 import { BladeApi, Pane } from 'tweakpane';
 import * as EssentialsPlugin from '@tweakpane/plugin-essentials';
+import { Canvas2DRenderer } from './renderers/Canvas2DRenderer';
+import { ParticleRenderer } from './renderers/ParticleRenderer';
 
 const canvas = document.querySelector<HTMLCanvasElement>('#canvas');
 const app = document.querySelector('#app');
@@ -23,10 +25,13 @@ if (!canvas) {
 else {
   const down = new Degree(90);
   const gravity = Force.fromVector('gravity', Vector.fromAngle(down.radians, 10));
+  const renderer:ParticleRenderer = new Canvas2DRenderer(canvas);
 
-  const world = new World(canvas, window);
+  const world = new World();
   world.addForce(gravity);
   world.updateSettings({
+    height: window.innerHeight,
+    width: window.innerWidth,
     minParticleCount: 500,
     maxParticleCount: 1000,
     minParticleLifeSpan: 5,
@@ -40,6 +45,17 @@ else {
 
   const paneRefs = setupTweakPane(world);
 
+  renderer.initialize(window.innerWidth, window.innerHeight);
+
+  // Handle window resize
+  window.addEventListener('resize', () => {
+    renderer.resize(window.innerWidth, window.innerHeight);
+    world.updateSettings({
+      height: window.innerHeight,
+      width: window.innerWidth,
+    });
+  });
+
   let lastTime = performance.now();
 
   function animate(currentTime: number) {
@@ -50,7 +66,7 @@ else {
     
     performance.mark('start');
     world.update(dt);
-    world.draw();
+    renderer.render(world.activeParticles);
     performance.mark('end');
     performance.measure('update', 'start', 'end');
 
