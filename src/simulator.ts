@@ -63,6 +63,7 @@ export class World {
 
   private _settings: WorldSettings = { ...defaultSettings };
 
+
   private _forces: Map<string, Force> = new Map();
 
   getSettings() {

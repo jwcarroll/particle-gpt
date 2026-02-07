@@ -6,6 +6,7 @@ import { BladeApi, Pane } from 'tweakpane';
 import * as EssentialsPlugin from '@tweakpane/plugin-essentials';
 import { Canvas2DRenderer } from './renderers/Canvas2DRenderer';
 import { ParticleRenderer } from './renderers/ParticleRenderer';
+import { BenchmarkModule } from './benchmark';
 
 const canvas = document.querySelector<HTMLCanvasElement>('#canvas');
 const app = document.querySelector('#app');
@@ -43,7 +44,8 @@ else {
     fillStyle: () => `hsl(${Math.random() * 360}, 100%, 50%)`,
   });
 
-  const paneRefs = setupTweakPane(world);
+  const benchmark = new BenchmarkModule(world);
+  const paneRefs = setupTweakPane(world, benchmark);
 
   renderer.initialize(window.innerWidth, window.innerHeight);
 
@@ -63,12 +65,21 @@ else {
     lastTime = currentTime;
 
     paneRefs.fpsgraph.begin();
-    
-    performance.mark('start');
+
+    const updateStart = performance.now();
     world.update(dt);
+    const updateEnd = performance.now();
+
+    const renderStart = performance.now();
     renderer.render(world.activeParticles);
-    performance.mark('end');
-    performance.measure('update', 'start', 'end');
+    const renderEnd = performance.now();
+
+    benchmark.recordFrame({
+      updateTime: updateEnd - updateStart,
+      renderTime: renderEnd - renderStart,
+      particleCount: world.particleCount,
+      poolSize: world.particlePool.length,
+    });
 
     paneRefs.fpsgraph.end();
 
@@ -87,7 +98,7 @@ type PaneReferences = {
   fpsgraph: FpsBladeApi;
 }
 
-function setupTweakPane(world: World): PaneReferences {
+function setupTweakPane(world: World, benchmark: BenchmarkModule): PaneReferences {
   const pane = new Pane();
   pane.registerPlugin(EssentialsPlugin);
   const settings = world.getSettings();
@@ -106,8 +117,13 @@ function setupTweakPane(world: World): PaneReferences {
 
   const fpsgraph = pane.addBlade({ view: 'fpsgraph', label: 'FPS', rows: 2 }) as FpsBladeApi;
 
+  // Setup benchmark UI
+  benchmark.setupUI(pane);
+
   //update world settings when pane is changed
   pane.on('change', () => {
+    // Don't overwrite settings while benchmark is running
+    if (benchmark.isRunning()) return;
     world.updateSettings(settings);
   });
 
