@@ -5,6 +5,7 @@ import { Degree, Vector } from './vector';
 import { BladeApi, Pane } from 'tweakpane';
 import * as EssentialsPlugin from '@tweakpane/plugin-essentials';
 import { Canvas2DRenderer } from './renderers/Canvas2DRenderer';
+import { DirectCanvas2DRenderer } from './renderers/DirectCanvas2DRenderer';
 import { ParticleRenderer } from './renderers/ParticleRenderer';
 import { BenchmarkModule } from './benchmark';
 
@@ -26,7 +27,16 @@ if (!canvas) {
 else {
   const down = new Degree(90);
   const gravity = Force.fromVector('gravity', Vector.fromAngle(down.radians, 10));
-  const renderer:ParticleRenderer = new Canvas2DRenderer(canvas);
+
+  // Renderer setup with hot-swapping support
+  const renderers = {
+    'DoubleBuffered': new Canvas2DRenderer(canvas),
+    'Direct': new DirectCanvas2DRenderer(canvas),
+  };
+  type RendererType = keyof typeof renderers;
+
+  const rendererState = { current: 'DoubleBuffered' as RendererType };
+  let renderer: ParticleRenderer = renderers[rendererState.current];
 
   const world = new World();
   world.addForce(gravity);
@@ -45,13 +55,17 @@ else {
   });
 
   const benchmark = new BenchmarkModule(world);
-  const paneRefs = setupTweakPane(world, benchmark);
+  const paneRefs = setupTweakPane(world, benchmark, rendererState, (type: 'DoubleBuffered' | 'Direct') => {
+    renderer = renderers[type];
+    renderer.initialize(window.innerWidth, window.innerHeight);
+  });
 
-  renderer.initialize(window.innerWidth, window.innerHeight);
+  // Initialize all renderers
+  Object.values(renderers).forEach(r => r.initialize(window.innerWidth, window.innerHeight));
 
   // Handle window resize
   window.addEventListener('resize', () => {
-    renderer.resize(window.innerWidth, window.innerHeight);
+    Object.values(renderers).forEach(r => r.resize(window.innerWidth, window.innerHeight));
     world.updateSettings({
       height: window.innerHeight,
       width: window.innerWidth,
@@ -98,10 +112,26 @@ type PaneReferences = {
   fpsgraph: FpsBladeApi;
 }
 
-function setupTweakPane(world: World, benchmark: BenchmarkModule): PaneReferences {
+function setupTweakPane(
+  world: World,
+  benchmark: BenchmarkModule,
+  rendererState: { current: string },
+  onRendererChange: (type: 'DoubleBuffered' | 'Direct') => void
+): PaneReferences {
   const pane = new Pane();
   pane.registerPlugin(EssentialsPlugin);
   const settings = world.getSettings();
+
+  // Renderer selection dropdown
+  pane.addBinding(rendererState, 'current', {
+    label: 'Renderer',
+    options: {
+      'Double-Buffered': 'DoubleBuffered',
+      'Direct (No Buffer)': 'Direct',
+    },
+  }).on('change', (ev) => {
+    onRendererChange(ev.value as 'DoubleBuffered' | 'Direct');
+  });
 
   pane.addBinding(settings, 'minParticleCount', { min: 0, max: 1000, step: 10 });
   pane.addBinding(settings, 'maxParticleCount', { min: 0, max: 10000, step: 10 });
