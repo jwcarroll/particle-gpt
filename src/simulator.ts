@@ -36,6 +36,7 @@ export interface WorldSettings {
   elasticity: number;
   enableParticleCollision: boolean;
   fillStyle: string | (() => string);
+  spawnRate: number;
 }
 
 const defaultSettings: WorldSettings = {
@@ -54,6 +55,7 @@ const defaultSettings: WorldSettings = {
   elasticity: 0.7,
   enableParticleCollision: true,
   fillStyle: 'blue',
+  spawnRate: 30,
 };
 
 
@@ -65,6 +67,8 @@ export class World {
 
 
   private _forces: Map<string, Force> = new Map();
+  private _forceList: Force[] = [];
+  private _collisionGrid: Map<string, number[]> = new Map();
 
   getSettings() {
     return { ...this._settings };
@@ -88,10 +92,12 @@ export class World {
 
   addForce(force: Force) {
     this._forces.set(force.name, force);
+    this._forceList = Array.from(this._forces.values());
   }
 
   removeForce(name: string) {
     this._forces.delete(name);
+    this._forceList = Array.from(this._forces.values());
   }
 
   addParticle(particle: Particle) {
@@ -99,6 +105,13 @@ export class World {
   }
 
   update(dt: number) {
+    let totalForceX = 0;
+    let totalForceY = 0;
+    for (let f = 0; f < this._forceList.length; f++) {
+      totalForceX += this._forceList[f].x;
+      totalForceY += this._forceList[f].y;
+    }
+
     let i = 0;
     while (i < this.activeParticles.length) {
       const particle = this.activeParticles[i];
@@ -112,9 +125,8 @@ export class World {
       }
 
       particle.update(dt);
-      this._forces.forEach(force => {
-        particle.velocity = particle.velocity.add(force);
-      });
+      particle.velocity.x += totalForceX;
+      particle.velocity.y += totalForceY;
 
       this.handleParticleCollidingWithBoundingBox(
         particle,
@@ -154,33 +166,30 @@ export class World {
   private addRandomParticle() {
     const x = Math.random() * this._settings.width;
     const y = Math.random() * this._settings.height;
-    const startingAngle = getRandomNumberBetween(this._settings.minStartingAngle, this._settings.maxStartingAngle);
+    const startingAngleDegrees = getRandomNumberBetween(this._settings.minStartingAngle, this._settings.maxStartingAngle);
+    const startingAngleRadians = startingAngleDegrees * (Math.PI / 180);
     const velocity = getRandomNumberBetween(this._settings.minParticleVelocity, this._settings.maxParticleVelocity);
-    const vVector = Vector.fromAngle(startingAngle, velocity);
+    const velocityX = Math.cos(startingAngleRadians) * velocity;
+    const velocityY = Math.sin(startingAngleRadians) * velocity;
     const radius = this.getRadius();
     const fillStyle = this.getFillStyle();
     const maxLifeSpan = getRandomNumberBetween(this._settings.minParticleLifeSpan, this._settings.maxParticleLifeSpan);
 
     const particle = this.getParticleFromPool();
-    particle.reset(x, y, new Vector(vVector.x, vVector.y), radius, fillStyle, maxLifeSpan);
+    particle.velocity.x = velocityX;
+    particle.velocity.y = velocityY;
+    particle.reset(x, y, particle.velocity, radius, fillStyle, maxLifeSpan);
     this.activeParticles.push(particle);
   }
 
   private refillParticles() {
     const particleCount = this.activeParticles.length;
-    const minParticleCount = this._settings.minParticleCount;
     const maxParticleCount = this._settings.maxParticleCount;
+    const spawnRate = this._settings.spawnRate;
 
-    // If below minimum, add particles to reach minimum
-    if (particleCount < minParticleCount) {
-      const particlesToAdd = Math.min(10, minParticleCount - particleCount);
-      for (let i = 0; i < particlesToAdd; i++) {
-        this.addRandomParticle();
-      }
-    }
-    // If between min and max, occasionally add particles
-    else if (particleCount < maxParticleCount) { // 10% chance
-      const particlesToAdd = Math.min(30, maxParticleCount - particleCount);
+    // If below max, add particles up to spawn rate
+    if (particleCount < maxParticleCount) {
+      const particlesToAdd = Math.min(spawnRate, maxParticleCount - particleCount);
       for (let i = 0; i < particlesToAdd; i++) {
         this.addRandomParticle();
       }
@@ -203,37 +212,99 @@ export class World {
     if (!this._settings.enableParticleCollision) {
       return;
     }
-    for (let i = 0; i < this.activeParticles.length; i++) {
-      for (let j = i + 1; j < this.activeParticles.length; j++) {
-        const p1 = this.activeParticles[i];
-        const p2 = this.activeParticles[j];
+    const particles = this.activeParticles;
+    const cellSize = Math.max(1, this._settings.maxParticleRadius * 2);
+    this.buildCollisionGrid(particles, cellSize);
 
-        if (p1.hasCollidedWith(p2)) {
-          const pos1 = new Vector(p1.x, p1.y);
-          const pos2 = new Vector(p2.x, p2.y);
+    for (let i = 0; i < particles.length; i++) {
+      const p1 = particles[i];
+      const cellX = Math.floor(p1.x / cellSize);
+      const cellY = Math.floor(p1.y / cellSize);
 
-          const collisionNormal = pos1.subtract(pos2).normalize();
-          const p1VelocityAlongCollisionNormal = p1.velocity.dot(collisionNormal);
-          const p2VelocityAlongCollisionNormal = p2.velocity.dot(collisionNormal);
+      for (let offsetY = -1; offsetY <= 1; offsetY++) {
+        for (let offsetX = -1; offsetX <= 1; offsetX++) {
+          const key = this.getGridKey(cellX + offsetX, cellY + offsetY);
+          const candidates = this._collisionGrid.get(key);
+          if (!candidates) {
+            continue;
+          }
 
-          const p1FinalVelocityAlongCollisionNormal = p2VelocityAlongCollisionNormal;
-          const p2FinalVelocityAlongCollisionNormal = p1VelocityAlongCollisionNormal;
+          for (let c = 0; c < candidates.length; c++) {
+            const j = candidates[c];
+            if (j <= i) {
+              continue;
+            }
 
-          const p1FinalVelocity = p1.velocity.add(collisionNormal.multiply(p1FinalVelocityAlongCollisionNormal - p1VelocityAlongCollisionNormal));
-          const p2FinalVelocity = p2.velocity.add(collisionNormal.multiply(p2FinalVelocityAlongCollisionNormal - p2VelocityAlongCollisionNormal));
+            const p2 = particles[j];
+            if (!p1.hasCollidedWith(p2)) {
+              continue;
+            }
 
-          p1.velocity = p1FinalVelocity.multiply(elasticity);
-          p2.velocity = p2FinalVelocity.multiply(elasticity);
-
-          //make sure they aren't overlapping
-          const overlap = p1.radius + p2.radius - pos1.distanceTo(pos2);
-          const moveApart = collisionNormal.multiply(overlap / 2);
-          p1.x += moveApart.x;
-          p1.y += moveApart.y;
-          p2.x -= moveApart.x;
-          p2.y -= moveApart.y;
+            this.resolveParticleCollision(p1, p2, elasticity);
+          }
         }
       }
+    }
+  }
+
+  private buildCollisionGrid(particles: Particle[], cellSize: number) {
+    this._collisionGrid.clear();
+
+    for (let i = 0; i < particles.length; i++) {
+      const particle = particles[i];
+      const cellX = Math.floor(particle.x / cellSize);
+      const cellY = Math.floor(particle.y / cellSize);
+      const key = this.getGridKey(cellX, cellY);
+      const existing = this._collisionGrid.get(key);
+      if (existing) {
+        existing.push(i);
+      } else {
+        this._collisionGrid.set(key, [i]);
+      }
+    }
+  }
+
+  private getGridKey(cellX: number, cellY: number): string {
+    return `${cellX},${cellY}`;
+  }
+
+  private resolveParticleCollision(p1: Particle, p2: Particle, elasticity: number) {
+    let dx = p1.x - p2.x;
+    let dy = p1.y - p2.y;
+    let distanceSquared = dx * dx + dy * dy;
+
+    // Avoid division-by-zero when particles fully overlap.
+    if (distanceSquared < 1e-12) {
+      dx = 1;
+      dy = 0;
+      distanceSquared = 1;
+    }
+
+    const distance = Math.sqrt(distanceSquared);
+    const normalX = dx / distance;
+    const normalY = dy / distance;
+
+    const p1VelocityAlongNormal = p1.velocity.x * normalX + p1.velocity.y * normalY;
+    const p2VelocityAlongNormal = p2.velocity.x * normalX + p2.velocity.y * normalY;
+
+    const p1FinalVelocityAlongNormal = p2VelocityAlongNormal;
+    const p2FinalVelocityAlongNormal = p1VelocityAlongNormal;
+
+    const p1Delta = p1FinalVelocityAlongNormal - p1VelocityAlongNormal;
+    const p2Delta = p2FinalVelocityAlongNormal - p2VelocityAlongNormal;
+
+    p1.velocity.x = (p1.velocity.x + normalX * p1Delta) * elasticity;
+    p1.velocity.y = (p1.velocity.y + normalY * p1Delta) * elasticity;
+    p2.velocity.x = (p2.velocity.x + normalX * p2Delta) * elasticity;
+    p2.velocity.y = (p2.velocity.y + normalY * p2Delta) * elasticity;
+
+    const overlap = p1.radius + p2.radius - distance;
+    if (overlap > 0) {
+      const moveApart = overlap * 0.5;
+      p1.x += normalX * moveApart;
+      p1.y += normalY * moveApart;
+      p2.x -= normalX * moveApart;
+      p2.y -= normalY * moveApart;
     }
   }
 }

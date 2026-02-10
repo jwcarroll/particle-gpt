@@ -28,7 +28,7 @@ export const SCENARIOS: Record<string, BenchmarkScenario> = {
   collision: {
     id: 'collision',
     name: 'Collision Test (500 particles)',
-    description: 'Tests O(n²) collision performance',
+    description: 'Tests collision performance under close-contact particle dynamics',
     duration: 10,
     warmupDuration: 2,
     settings: {
@@ -49,7 +49,7 @@ export const SCENARIOS: Record<string, BenchmarkScenario> = {
       enableParticleCollision: false,
       rampMode: true,
       rampStartCount: 100,
-      rampEndCount: 20000,
+      rampEndCount: 30000,
     },
   },
 };

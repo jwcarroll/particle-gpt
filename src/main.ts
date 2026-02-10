@@ -6,6 +6,7 @@ import { BladeApi, Pane } from 'tweakpane';
 import * as EssentialsPlugin from '@tweakpane/plugin-essentials';
 import { Canvas2DRenderer } from './renderers/Canvas2DRenderer';
 import { DirectCanvas2DRenderer } from './renderers/DirectCanvas2DRenderer';
+import { WebGLRenderer } from './renderers/WebGLRenderer';
 import { ParticleRenderer } from './renderers/ParticleRenderer';
 import { BenchmarkModule } from './benchmark';
 
@@ -28,15 +29,28 @@ else {
   const down = new Degree(90);
   const gravity = Force.fromVector('gravity', Vector.fromAngle(down.radians, 10));
 
+  // Create separate canvas for WebGL (can't mix 2d and webgl contexts)
+  const webglCanvas = document.createElement('canvas');
+  webglCanvas.id = 'webgl-canvas';
+  webglCanvas.style.display = 'none';
+  canvas.parentElement?.appendChild(webglCanvas);
+
   // Renderer setup with hot-swapping support
   const renderers = {
     'DoubleBuffered': new Canvas2DRenderer(canvas),
     'Direct': new DirectCanvas2DRenderer(canvas),
+    'WebGL': new WebGLRenderer(webglCanvas),
   };
   type RendererType = keyof typeof renderers;
 
   const rendererState = { current: 'DoubleBuffered' as RendererType };
   let renderer: ParticleRenderer = renderers[rendererState.current];
+
+  // Helper to show correct canvas
+  const updateCanvasVisibility = (type: RendererType) => {
+    canvas.style.display = type === 'WebGL' ? 'none' : 'block';
+    webglCanvas.style.display = type === 'WebGL' ? 'block' : 'none';
+  };
 
   const world = new World();
   world.addForce(gravity);
@@ -55,9 +69,10 @@ else {
   });
 
   const benchmark = new BenchmarkModule(world);
-  const paneRefs = setupTweakPane(world, benchmark, rendererState, (type: 'DoubleBuffered' | 'Direct') => {
+  const paneRefs = setupTweakPane(world, benchmark, rendererState, (type: RendererType) => {
     renderer = renderers[type];
     renderer.initialize(window.innerWidth, window.innerHeight);
+    updateCanvasVisibility(type);
   });
 
   // Initialize all renderers
@@ -116,7 +131,7 @@ function setupTweakPane(
   world: World,
   benchmark: BenchmarkModule,
   rendererState: { current: string },
-  onRendererChange: (type: 'DoubleBuffered' | 'Direct') => void
+  onRendererChange: (type: 'DoubleBuffered' | 'Direct' | 'WebGL') => void
 ): PaneReferences {
   const pane = new Pane();
   pane.registerPlugin(EssentialsPlugin);
@@ -126,15 +141,17 @@ function setupTweakPane(
   pane.addBinding(rendererState, 'current', {
     label: 'Renderer',
     options: {
-      'Double-Buffered': 'DoubleBuffered',
-      'Direct (No Buffer)': 'Direct',
+      'Canvas2D': 'DoubleBuffered',
+      'Canvas2D (Direct)': 'Direct',
+      'WebGL': 'WebGL',
     },
   }).on('change', (ev) => {
-    onRendererChange(ev.value as 'DoubleBuffered' | 'Direct');
+    onRendererChange(ev.value as 'DoubleBuffered' | 'Direct' | 'WebGL');
   });
 
   pane.addBinding(settings, 'minParticleCount', { min: 0, max: 1000, step: 10 });
-  pane.addBinding(settings, 'maxParticleCount', { min: 0, max: 10000, step: 10 });
+  pane.addBinding(settings, 'maxParticleCount', { min: 0, max: 50000, step: 100 });
+  pane.addBinding(settings, 'spawnRate', { min: 10, max: 1000, step: 10, label: 'Spawn Rate' });
 
   pane.addBinding(world, 'particleCount', { label: 'particles', readonly: true });
 

@@ -60,10 +60,12 @@ export class BenchmarkRunner {
     this.originalSettings = world.getSettings();
 
     // Apply scenario settings
+    // Spawn rate of 100 = ~6000 particles/second at 60fps, balances ramp speed vs measurement accuracy
     world.updateSettings({
       minParticleCount: scenario.settings.minParticleCount,
       maxParticleCount: scenario.settings.maxParticleCount,
       enableParticleCollision: scenario.settings.enableParticleCollision,
+      spawnRate: 50,
     });
 
     // Set timing

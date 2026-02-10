@@ -38,7 +38,9 @@ export class Particle {
   reset(x: number, y: number, velocity: Vector, radius: number, fillStyle: string, maxLifeSpan: number): void {
     this.x = x;
     this.y = y;
-    this.velocity = velocity;
+    // Keep the same velocity object to reduce allocations during pool reuse.
+    this.velocity.x = velocity.x;
+    this.velocity.y = velocity.y;
     this.radius = radius;
     this.fillStyle = fillStyle;
     this.maxLifeSpan = maxLifeSpan;
@@ -46,7 +48,9 @@ export class Particle {
   }
 
   hasCollidedWith(particle: Particle) {
-    const distance = Math.sqrt((this.x - particle.x) ** 2 + (this.y - particle.y) ** 2);
-    return distance < this.radius + particle.radius;
+    const dx = this.x - particle.x;
+    const dy = this.y - particle.y;
+    const sumRadius = this.radius + particle.radius;
+    return dx * dx + dy * dy < sumRadius * sumRadius;
   }
 }
