@@ -151,28 +151,54 @@ export class WebGLRenderer implements ParticleRenderer {
         return program;
     }
 
-    private parseColor(hsl: string): [number, number, number] {
+    private parseColor(color: string): [number, number, number] {
         // Check cache first
-        let rgb = this.colorCache.get(hsl);
+        let rgb = this.colorCache.get(color);
         if (rgb) return rgb;
 
-        // Parse HSL: "hsl(H, S%, L%)"
-        const match = hsl.match(/hsl\(\s*([\d.]+)\s*,\s*([\d.]+)%\s*,\s*([\d.]+)%\s*\)/);
-        if (!match) {
-            // Fallback to white
-            rgb = [1, 1, 1];
+        // Parse hex: #rgb, #rgba, #rrggbb, #rrggbbaa
+        const hex = color.match(/^#([0-9a-f]{3}|[0-9a-f]{4}|[0-9a-f]{6}|[0-9a-f]{8})$/i);
+        if (hex) {
+            const raw = hex[1];
+            if (raw.length === 3 || raw.length === 4) {
+                const r = parseInt(raw[0] + raw[0], 16) / 255;
+                const g = parseInt(raw[1] + raw[1], 16) / 255;
+                const b = parseInt(raw[2] + raw[2], 16) / 255;
+                rgb = [r, g, b];
+            } else {
+                const r = parseInt(raw.slice(0, 2), 16) / 255;
+                const g = parseInt(raw.slice(2, 4), 16) / 255;
+                const b = parseInt(raw.slice(4, 6), 16) / 255;
+                rgb = [r, g, b];
+            }
         } else {
-            const h = parseFloat(match[1]) / 360;
-            const s = parseFloat(match[2]) / 100;
-            const l = parseFloat(match[3]) / 100;
-            rgb = this.hslToRgb(h, s, l);
+            // Parse rgb/rgba: "rgb(R,G,B)" or "rgba(R,G,B,A)"
+            const rgbMatch = color.match(/rgba?\(\s*([\d.]+)\s*,\s*([\d.]+)\s*,\s*([\d.]+)(?:\s*,\s*[\d.]+\s*)?\)/i);
+            if (rgbMatch) {
+                const r = Math.max(0, Math.min(255, parseFloat(rgbMatch[1]))) / 255;
+                const g = Math.max(0, Math.min(255, parseFloat(rgbMatch[2]))) / 255;
+                const b = Math.max(0, Math.min(255, parseFloat(rgbMatch[3]))) / 255;
+                rgb = [r, g, b];
+            } else {
+                // Parse HSL: "hsl(H, S%, L%)"
+                const hslMatch = color.match(/hsl\(\s*([\d.]+)\s*,\s*([\d.]+)%\s*,\s*([\d.]+)%\s*\)/i);
+                if (!hslMatch) {
+                    // Fallback to white for unsupported color strings
+                    rgb = [1, 1, 1];
+                } else {
+                    const h = parseFloat(hslMatch[1]) / 360;
+                    const s = parseFloat(hslMatch[2]) / 100;
+                    const l = parseFloat(hslMatch[3]) / 100;
+                    rgb = this.hslToRgb(h, s, l);
+                }
+            }
         }
 
         // Cache it (limit cache size)
         if (this.colorCache.size > 10000) {
             this.colorCache.clear();
         }
-        this.colorCache.set(hsl, rgb);
+        this.colorCache.set(color, rgb);
         return rgb;
     }
 

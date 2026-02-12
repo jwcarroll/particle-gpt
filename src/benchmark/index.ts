@@ -1,9 +1,8 @@
-import { Pane } from 'tweakpane';
 import { World } from '../simulator';
 import { BenchmarkComparison } from './BenchmarkComparison';
 import { BenchmarkRunner } from './BenchmarkRunner';
 import { BenchmarkStorage } from './BenchmarkStorage';
-import { BenchmarkUI } from './BenchmarkUI';
+import { BenchmarkPaneContainer, BenchmarkUI } from './BenchmarkUI';
 
 export class BenchmarkModule {
   private runner: BenchmarkRunner;
@@ -20,7 +19,7 @@ export class BenchmarkModule {
     this.ui = new BenchmarkUI(this.runner, this.storage, this.world);
   }
 
-  setupUI(pane: Pane): void {
+  setupUI(pane: BenchmarkPaneContainer): void {
     this.ui.setup(pane);
   }
 

@@ -125,8 +125,9 @@ export class World {
       }
 
       particle.update(dt);
-      particle.velocity.x += totalForceX;
-      particle.velocity.y += totalForceY;
+      // Integrate acceleration with dt so behavior is frame-rate independent.
+      particle.velocity.x += totalForceX * dt;
+      particle.velocity.y += totalForceY * dt;
 
       this.handleParticleCollidingWithBoundingBox(
         particle,
@@ -284,28 +285,36 @@ export class World {
     const normalX = dx / distance;
     const normalY = dy / distance;
 
-    const p1VelocityAlongNormal = p1.velocity.x * normalX + p1.velocity.y * normalY;
-    const p2VelocityAlongNormal = p2.velocity.x * normalX + p2.velocity.y * normalY;
-
-    const p1FinalVelocityAlongNormal = p2VelocityAlongNormal;
-    const p2FinalVelocityAlongNormal = p1VelocityAlongNormal;
-
-    const p1Delta = p1FinalVelocityAlongNormal - p1VelocityAlongNormal;
-    const p2Delta = p2FinalVelocityAlongNormal - p2VelocityAlongNormal;
-
-    p1.velocity.x = (p1.velocity.x + normalX * p1Delta) * elasticity;
-    p1.velocity.y = (p1.velocity.y + normalY * p1Delta) * elasticity;
-    p2.velocity.x = (p2.velocity.x + normalX * p2Delta) * elasticity;
-    p2.velocity.y = (p2.velocity.y + normalY * p2Delta) * elasticity;
-
     const overlap = p1.radius + p2.radius - distance;
     if (overlap > 0) {
-      const moveApart = overlap * 0.5;
-      p1.x += normalX * moveApart;
-      p1.y += normalY * moveApart;
-      p2.x -= normalX * moveApart;
-      p2.y -= normalY * moveApart;
+      // Position correction prevents persistent overlap that causes clumping/jitter.
+      const correctionPercent = 0.8;
+      const slop = 0.01;
+      const correction = Math.max(overlap - slop, 0) * correctionPercent * 0.5;
+      p1.x += normalX * correction;
+      p1.y += normalY * correction;
+      p2.x -= normalX * correction;
+      p2.y -= normalY * correction;
     }
+
+    const relativeVelocityX = p1.velocity.x - p2.velocity.x;
+    const relativeVelocityY = p1.velocity.y - p2.velocity.y;
+    const velocityAlongNormal = relativeVelocityX * normalX + relativeVelocityY * normalY;
+
+    // If particles are separating, do not apply an impulse.
+    if (velocityAlongNormal > 0) {
+      return;
+    }
+
+    // Equal-mass impulse resolution along collision normal.
+    const impulseMagnitude = -(1 + elasticity) * velocityAlongNormal * 0.5;
+    const impulseX = impulseMagnitude * normalX;
+    const impulseY = impulseMagnitude * normalY;
+
+    p1.velocity.x += impulseX;
+    p1.velocity.y += impulseY;
+    p2.velocity.x -= impulseX;
+    p2.velocity.y -= impulseY;
   }
 }
 

@@ -1,4 +1,4 @@
-import { FolderApi, Pane } from 'tweakpane';
+import { FolderApi } from 'tweakpane';
 import { World } from '../simulator';
 import { BenchmarkComparison } from './BenchmarkComparison';
 import { BenchmarkRunner } from './BenchmarkRunner';
@@ -18,12 +18,17 @@ interface UIState {
   baseline: string;
 }
 
+export interface BenchmarkPaneContainer {
+  addFolder(params: { title: string; expanded?: boolean }): FolderApi;
+  refresh(): void;
+}
+
 export class BenchmarkUI {
   private runner: BenchmarkRunner;
   private storage: BenchmarkStorage;
   private comparison: BenchmarkComparison;
   private world: World;
-  private pane: Pane | null = null;
+  private pane: BenchmarkPaneContainer | null = null;
   private folder: FolderApi | null = null;
   private lastResult: BenchmarkResult | null = null;
 
@@ -46,7 +51,7 @@ export class BenchmarkUI {
     this.world = world;
   }
 
-  setup(pane: Pane): FolderApi {
+  setup(pane: BenchmarkPaneContainer): FolderApi {
     this.pane = pane;
     this.folder = pane.addFolder({ title: 'Benchmark', expanded: false });
 

@@ -26,8 +26,10 @@ if (!canvas) {
   `;
 }
 else {
+  const GRAVITY_MPS2 = 9.81;
+  const PIXELS_PER_METER = 100;
   const down = new Degree(90);
-  const gravity = Force.fromVector('gravity', Vector.fromAngle(down.radians, 10));
+  const gravity = Force.fromVector('gravity', Vector.fromAngle(down.radians, GRAVITY_MPS2 * PIXELS_PER_METER));
 
   // Create separate canvas for WebGL (can't mix 2d and webgl contexts)
   const webglCanvas = document.createElement('canvas');
@@ -127,6 +129,46 @@ type PaneReferences = {
   fpsgraph: FpsBladeApi;
 }
 
+type IntervalRange = {
+  min: number;
+  max: number;
+};
+
+type ColorMode = 'solid' | 'rainbow' | 'preset';
+type ColorPreset = 'water' | 'fire' | 'forest' | 'sunset';
+
+type PaneState = {
+  particleCountRange: IntervalRange;
+  lifespanRange: IntervalRange;
+  radiusRange: IntervalRange;
+  velocityRange: IntervalRange;
+  angleRange: IntervalRange;
+  colorMode: ColorMode;
+  colorPreset: ColorPreset;
+  rainbowCount: number;
+  solidColor: string;
+  colorPalette: string[];
+};
+
+const COLOR_PRESETS: Record<ColorPreset, string[]> = {
+  water: ['#0b3c5d', '#1d6996', '#39a0ed', '#6ec6ff', '#9bdaf1'],
+  fire: ['#4a0d00', '#8b1d04', '#d94801', '#ff8c00', '#ffd166', '#ff4d00'],
+  forest: ['#1b4332', '#2d6a4f', '#40916c', '#52b788', '#95d5b2'],
+  sunset: ['#3a0f5c', '#8c1c61', '#d1495b', '#edae49', '#f7e1ae'],
+};
+
+function randomHexColor(): string {
+  return `#${Math.floor(Math.random() * 0xffffff).toString(16).padStart(6, '0')}`;
+}
+
+function createRandomPalette(count: number): string[] {
+  const colors: string[] = [];
+  for (let i = 0; i < count; i++) {
+    colors.push(randomHexColor());
+  }
+  return colors;
+}
+
 function setupTweakPane(
   world: World,
   benchmark: BenchmarkModule,
@@ -135,10 +177,98 @@ function setupTweakPane(
 ): PaneReferences {
   const pane = new Pane();
   pane.registerPlugin(EssentialsPlugin);
+  const fpsgraph = pane.addBlade({ view: 'fpsgraph', label: 'FPS', rows: 2 }) as FpsBladeApi;
   const settings = world.getSettings();
+  const initialSolidColor = typeof settings.fillStyle === 'string' ? settings.fillStyle : '#00aaff';
+  const initialRainbowCount = 7;
 
-  // Renderer selection dropdown
-  pane.addBinding(rendererState, 'current', {
+  const paneState: PaneState = {
+    particleCountRange: {
+      min: settings.minParticleCount,
+      max: settings.maxParticleCount,
+    },
+    lifespanRange: {
+      min: settings.minParticleLifeSpan,
+      max: settings.maxParticleLifeSpan,
+    },
+    radiusRange: {
+      min: settings.minParticleRadius,
+      max: settings.maxParticleRadius,
+    },
+    velocityRange: {
+      min: settings.minParticleVelocity,
+      max: settings.maxParticleVelocity,
+    },
+    angleRange: {
+      min: settings.minStartingAngle,
+      max: settings.maxStartingAngle,
+    },
+    colorMode: typeof settings.fillStyle === 'string' ? 'solid' : 'rainbow',
+    colorPreset: 'water',
+    rainbowCount: initialRainbowCount,
+    solidColor: initialSolidColor,
+    colorPalette: typeof settings.fillStyle === 'string'
+      ? [initialSolidColor]
+      : createRandomPalette(initialRainbowCount),
+  };
+
+  const tabs = pane.addTab({
+    pages: [
+      { title: 'Simulation' },
+      { title: 'Rendering' },
+      { title: 'Benchmark' },
+    ],
+  });
+
+  const simulationTab = tabs.pages[0];
+  const renderingTab = tabs.pages[1];
+  const benchmarkTab = tabs.pages[2];
+
+  const populationFolder = simulationTab.addFolder({ title: 'Population', expanded: true });
+  const lifespanAndSizeFolder = simulationTab.addFolder({ title: 'Lifespan & Size', expanded: false });
+  const motionFolder = simulationTab.addFolder({ title: 'Motion', expanded: false });
+  const collisionFolder = simulationTab.addFolder({ title: 'Collision', expanded: false });
+
+  populationFolder.addBinding(paneState, 'particleCountRange', {
+    min: 0,
+    max: 50000,
+    step: 10,
+    label: 'Count Range',
+  });
+  populationFolder.addBinding(settings, 'spawnRate', { min: 10, max: 1000, step: 10, label: 'Spawn Rate' });
+  populationFolder.addBinding(world, 'particleCount', { label: 'Particles', readonly: true });
+
+  lifespanAndSizeFolder.addBinding(paneState, 'lifespanRange', {
+    min: 0.1,
+    max: 100,
+    step: 0.1,
+    label: 'Lifespan',
+  });
+  lifespanAndSizeFolder.addBinding(paneState, 'radiusRange', {
+    min: 0,
+    max: 100,
+    step: 1,
+    label: 'Radius',
+  });
+
+  motionFolder.addBinding(paneState, 'velocityRange', {
+    min: 0,
+    max: 1000,
+    step: 1,
+    label: 'Velocity',
+  });
+  motionFolder.addBinding(paneState, 'angleRange', {
+    min: 0,
+    max: 360,
+    step: 1,
+    label: 'Angle',
+  });
+
+  collisionFolder.addBinding(settings, 'enableParticleCollision', { label: 'Enable Collisions' });
+  collisionFolder.addBinding(settings, 'elasticity', { min: 0, max: 1, step: 0.01 });
+
+  const rendererFolder = renderingTab.addFolder({ title: 'Renderer', expanded: true });
+  rendererFolder.addBinding(rendererState, 'current', {
     label: 'Renderer',
     options: {
       'Canvas2D': 'DoubleBuffered',
@@ -149,28 +279,144 @@ function setupTweakPane(
     onRendererChange(ev.value as 'DoubleBuffered' | 'Direct' | 'WebGL');
   });
 
-  pane.addBinding(settings, 'minParticleCount', { min: 0, max: 1000, step: 10 });
-  pane.addBinding(settings, 'maxParticleCount', { min: 0, max: 50000, step: 100 });
-  pane.addBinding(settings, 'spawnRate', { min: 10, max: 1000, step: 10, label: 'Spawn Rate' });
+  const colorFolder = renderingTab.addFolder({ title: 'Color', expanded: true });
+  const paletteFolder = colorFolder.addFolder({ title: 'Palette', expanded: true });
+  const colorModeBinding = colorFolder.addBinding(paneState, 'colorMode', {
+    label: 'Mode',
+    options: {
+      Solid: 'solid',
+      Rainbow: 'rainbow',
+      Preset: 'preset',
+    },
+  });
 
-  pane.addBinding(world, 'particleCount', { label: 'particles', readonly: true });
+  const colorPresetBinding = colorFolder.addBinding(paneState, 'colorPreset', {
+    label: 'Preset',
+    options: {
+      Water: 'water',
+      Fire: 'fire',
+      Forest: 'forest',
+      Sunset: 'sunset',
+    },
+  });
 
-  pane.addBinding(settings, 'minParticleLifeSpan', { min: 0.1, max: 10, step: 0.1 });
-  pane.addBinding(settings, 'maxParticleLifeSpan', { min: 0.1, max: 100, step: 0.1 });
-  pane.addBinding(settings, 'minParticleRadius', { min: 0, max: 10, step: 1 });
-  pane.addBinding(settings, 'maxParticleRadius', { min: 1, max: 100, step: 1 });
-  pane.addBinding(settings, 'enableParticleCollision');
-  pane.addBinding(settings, 'elasticity', { min: 0, max: 1 });
+  const rainbowCountBinding = colorFolder.addBinding(paneState, 'rainbowCount', {
+    label: 'Colors',
+    min: 5,
+    max: 10,
+    step: 1,
+  });
 
-  const fpsgraph = pane.addBlade({ view: 'fpsgraph', label: 'FPS', rows: 2 }) as FpsBladeApi;
+  const randomizePaletteButton = colorFolder.addButton({ title: 'Randomize Palette' });
+
+  const dynamicPaletteBindings: BladeApi[] = [];
+  const clearPaletteBindings = () => {
+    while (dynamicPaletteBindings.length > 0) {
+      dynamicPaletteBindings.pop()?.dispose();
+    }
+  };
+
+  const syncPaletteForMode = (regenerateRainbow: boolean) => {
+    if (paneState.colorMode === 'solid') {
+      paneState.colorPalette = [paneState.solidColor];
+      return;
+    }
+
+    if (paneState.colorMode === 'preset') {
+      paneState.colorPalette = [...COLOR_PRESETS[paneState.colorPreset]];
+      return;
+    }
+
+    if (regenerateRainbow || paneState.colorPalette.length === 0) {
+      paneState.colorPalette = createRandomPalette(paneState.rainbowCount);
+      return;
+    }
+
+    const next = [...paneState.colorPalette];
+    if (next.length > paneState.rainbowCount) {
+      next.length = paneState.rainbowCount;
+    } else {
+      while (next.length < paneState.rainbowCount) {
+        next.push(randomHexColor());
+      }
+    }
+    paneState.colorPalette = next;
+  };
+
+  const rebuildPaletteBindings = () => {
+    clearPaletteBindings();
+
+    for (let i = 0; i < paneState.colorPalette.length; i++) {
+      const swatch = { color: paneState.colorPalette[i] };
+      const binding = paletteFolder.addBinding(swatch, 'color', {
+        label: `Color ${i + 1}`,
+        view: 'color',
+      });
+      binding.on('change', (ev) => {
+        paneState.colorPalette[i] = ev.value as string;
+        if (paneState.colorMode === 'solid') {
+          paneState.solidColor = paneState.colorPalette[0];
+        }
+      });
+      dynamicPaletteBindings.push(binding);
+    }
+  };
+
+  const updateColorUiVisibility = () => {
+    colorPresetBinding.hidden = paneState.colorMode !== 'preset';
+    rainbowCountBinding.hidden = paneState.colorMode !== 'rainbow';
+    randomizePaletteButton.hidden = paneState.colorMode !== 'rainbow';
+  };
+
+  syncPaletteForMode(false);
+  rebuildPaletteBindings();
+  updateColorUiVisibility();
+
+  colorModeBinding.on('change', () => {
+    syncPaletteForMode(true);
+    rebuildPaletteBindings();
+    updateColorUiVisibility();
+  });
+  colorPresetBinding.on('change', () => {
+    syncPaletteForMode(false);
+    rebuildPaletteBindings();
+  });
+  rainbowCountBinding.on('change', () => {
+    syncPaletteForMode(false);
+    rebuildPaletteBindings();
+  });
+  randomizePaletteButton.on('click', () => {
+    syncPaletteForMode(true);
+    rebuildPaletteBindings();
+  });
 
   // Setup benchmark UI
-  benchmark.setupUI(pane);
+  benchmark.setupUI(benchmarkTab);
 
   //update world settings when pane is changed
   pane.on('change', () => {
     // Don't overwrite settings while benchmark is running
     if (benchmark.isRunning()) return;
+
+    settings.minParticleCount = paneState.particleCountRange.min;
+    settings.maxParticleCount = paneState.particleCountRange.max;
+    settings.minParticleLifeSpan = paneState.lifespanRange.min;
+    settings.maxParticleLifeSpan = paneState.lifespanRange.max;
+    settings.minParticleRadius = paneState.radiusRange.min;
+    settings.maxParticleRadius = paneState.radiusRange.max;
+    settings.minParticleVelocity = paneState.velocityRange.min;
+    settings.maxParticleVelocity = paneState.velocityRange.max;
+    settings.minStartingAngle = paneState.angleRange.min;
+    settings.maxStartingAngle = paneState.angleRange.max;
+    settings.fillStyle = () => {
+      const palette = paneState.colorPalette;
+      if (palette.length === 0) {
+        return paneState.solidColor;
+      }
+      const index = Math.floor(Math.random() * palette.length);
+      return palette[index];
+    };
+
     world.updateSettings(settings);
   });
 
