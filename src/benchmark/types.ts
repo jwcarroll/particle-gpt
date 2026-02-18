@@ -39,6 +39,8 @@ export interface ScenarioSettings {
   minParticleCount: number;
   maxParticleCount: number;
   enableParticleCollision: boolean;
+  forcePresetId?: 'benchmarkDefault' | 'gravityOnly' | 'custom';
+  customForceState?: Record<string, unknown>;
   // For ramp test
   rampMode?: boolean;
   rampStartCount?: number;

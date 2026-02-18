@@ -1,4 +1,5 @@
 import { World } from '../simulator';
+import { ForceRegistry } from '../forces';
 import { BenchmarkComparison } from './BenchmarkComparison';
 import { BenchmarkRunner } from './BenchmarkRunner';
 import { BenchmarkStorage } from './BenchmarkStorage';
@@ -11,9 +12,9 @@ export class BenchmarkModule {
   private ui: BenchmarkUI;
   private world: World;
 
-  constructor(world: World) {
+  constructor(world: World, forceRegistry?: ForceRegistry) {
     this.world = world;
-    this.runner = new BenchmarkRunner();
+    this.runner = new BenchmarkRunner(forceRegistry);
     this.storage = new BenchmarkStorage();
     this.comparison = new BenchmarkComparison();
     this.ui = new BenchmarkUI(this.runner, this.storage, this.world);

@@ -19,6 +19,7 @@
 import { Force } from "./force";
 import { Particle } from "./particle";
 import { Vector } from "./vector";
+import { ForceContext, ForceVector } from "./forces";
 
 export interface WorldSettings {
   height: number;
@@ -69,6 +70,8 @@ export class World {
   private _forces: Map<string, Force> = new Map();
   private _forceList: Force[] = [];
   private _collisionGrid: Map<string, number[]> = new Map();
+  private _forceProvider: ((context: ForceContext) => ForceVector) | null = null;
+  private _elapsedTime = 0;
 
   getSettings() {
     return { ...this._settings };
@@ -76,6 +79,10 @@ export class World {
 
   updateSettings(settings: Partial<WorldSettings>) {
     this._settings = { ...this._settings, ...settings };
+  }
+
+  setForceProvider(provider: ((context: ForceContext) => ForceVector) | null): void {
+    this._forceProvider = provider;
   }
 
   getParticleFromPool(): Particle {
@@ -105,11 +112,28 @@ export class World {
   }
 
   update(dt: number) {
+    this._elapsedTime += dt;
+
     let totalForceX = 0;
     let totalForceY = 0;
     for (let f = 0; f < this._forceList.length; f++) {
       totalForceX += this._forceList[f].x;
       totalForceY += this._forceList[f].y;
+    }
+
+    if (this._forceProvider) {
+      const centroid = this.getParticleCentroid();
+      const provided = this._forceProvider({
+        dt,
+        elapsedTime: this._elapsedTime,
+        worldWidth: this._settings.width,
+        worldHeight: this._settings.height,
+        particleCount: this.activeParticles.length,
+        particleCentroidX: centroid.x,
+        particleCentroidY: centroid.y,
+      });
+      totalForceX += provided.x;
+      totalForceY += provided.y;
     }
 
     let i = 0;
@@ -181,6 +205,27 @@ export class World {
     particle.velocity.y = velocityY;
     particle.reset(x, y, particle.velocity, radius, fillStyle, maxLifeSpan);
     this.activeParticles.push(particle);
+  }
+
+  private getParticleCentroid(): { x: number; y: number } {
+    if (this.activeParticles.length === 0) {
+      return {
+        x: this._settings.width * 0.5,
+        y: this._settings.height * 0.5,
+      };
+    }
+
+    let sumX = 0;
+    let sumY = 0;
+    for (let i = 0; i < this.activeParticles.length; i++) {
+      sumX += this.activeParticles[i].x;
+      sumY += this.activeParticles[i].y;
+    }
+
+    return {
+      x: sumX / this.activeParticles.length,
+      y: sumY / this.activeParticles.length,
+    };
   }
 
   private refillParticles() {

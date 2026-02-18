@@ -1,7 +1,5 @@
 import './style.css'
 import { World } from './simulator'
-import { Force } from './force';
-import { Degree, Vector } from './vector';
 import { BladeApi, Pane } from 'tweakpane';
 import * as EssentialsPlugin from '@tweakpane/plugin-essentials';
 import { Canvas2DRenderer } from './renderers/Canvas2DRenderer';
@@ -9,6 +7,7 @@ import { DirectCanvas2DRenderer } from './renderers/DirectCanvas2DRenderer';
 import { WebGLRenderer } from './renderers/WebGLRenderer';
 import { ParticleRenderer } from './renderers/ParticleRenderer';
 import { BenchmarkModule } from './benchmark';
+import { ForceRegistry, GravityForcePlugin, RadialForcePlugin, WindForcePlugin } from './forces';
 
 const canvas = document.querySelector<HTMLCanvasElement>('#canvas');
 const app = document.querySelector('#app');
@@ -26,10 +25,7 @@ if (!canvas) {
   `;
 }
 else {
-  const GRAVITY_MPS2 = 9.81;
   const PIXELS_PER_METER = 100;
-  const down = new Degree(90);
-  const gravity = Force.fromVector('gravity', Vector.fromAngle(down.radians, GRAVITY_MPS2 * PIXELS_PER_METER));
 
   // Create separate canvas for WebGL (can't mix 2d and webgl contexts)
   const webglCanvas = document.createElement('canvas');
@@ -55,7 +51,21 @@ else {
   };
 
   const world = new World();
-  world.addForce(gravity);
+  const forceRegistry = new ForceRegistry();
+  const gravityForce = new GravityForcePlugin({
+    pixelsPerMeter: PIXELS_PER_METER,
+    defaults: { strengthMps2: 9.81, directionDeg: 90, enabled: true },
+  });
+  const windForce = new WindForcePlugin({ pixelsPerMeter: PIXELS_PER_METER });
+  const radialForce = new RadialForcePlugin({
+    pixelsPerMeter: PIXELS_PER_METER,
+    defaults: { centerX: window.innerWidth * 0.5, centerY: window.innerHeight * 0.5 },
+  });
+  forceRegistry.register(gravityForce);
+  forceRegistry.register(windForce);
+  forceRegistry.register(radialForce);
+  world.setForceProvider((context) => forceRegistry.getNetForce(context));
+
   world.updateSettings({
     height: window.innerHeight,
     width: window.innerWidth,
@@ -70,8 +80,8 @@ else {
     fillStyle: () => `hsl(${Math.random() * 360}, 100%, 50%)`,
   });
 
-  const benchmark = new BenchmarkModule(world);
-  const paneRefs = setupTweakPane(world, benchmark, rendererState, (type: RendererType) => {
+  const benchmark = new BenchmarkModule(world, forceRegistry);
+  const paneRefs = setupTweakPane(world, forceRegistry, benchmark, rendererState, (type: RendererType) => {
     renderer = renderers[type];
     renderer.initialize(window.innerWidth, window.innerHeight);
     updateCanvasVisibility(type);
@@ -86,6 +96,11 @@ else {
     world.updateSettings({
       height: window.innerHeight,
       width: window.innerWidth,
+    });
+    const radialState = radialForce.getState();
+    radialForce.setState({
+      centerX: Math.min(radialState.centerX, window.innerWidth),
+      centerY: Math.min(radialState.centerY, window.innerHeight),
     });
   });
 
@@ -171,6 +186,7 @@ function createRandomPalette(count: number): string[] {
 
 function setupTweakPane(
   world: World,
+  forceRegistry: ForceRegistry,
   benchmark: BenchmarkModule,
   rendererState: { current: string },
   onRendererChange: (type: 'DoubleBuffered' | 'Direct' | 'WebGL') => void
@@ -215,14 +231,16 @@ function setupTweakPane(
   const tabs = pane.addTab({
     pages: [
       { title: 'Simulation' },
+      { title: 'Forces' },
       { title: 'Rendering' },
       { title: 'Benchmark' },
     ],
   });
 
   const simulationTab = tabs.pages[0];
-  const renderingTab = tabs.pages[1];
-  const benchmarkTab = tabs.pages[2];
+  const forcesTab = tabs.pages[1];
+  const renderingTab = tabs.pages[2];
+  const benchmarkTab = tabs.pages[3];
 
   const populationFolder = simulationTab.addFolder({ title: 'Population', expanded: true });
   const lifespanAndSizeFolder = simulationTab.addFolder({ title: 'Lifespan & Size', expanded: false });
@@ -266,6 +284,167 @@ function setupTweakPane(
 
   collisionFolder.addBinding(settings, 'enableParticleCollision', { label: 'Enable Collisions' });
   collisionFolder.addBinding(settings, 'elasticity', { min: 0, max: 1, step: 0.01 });
+
+  const gravityPlugin = forceRegistry.get('gravity');
+  if (gravityPlugin instanceof GravityForcePlugin) {
+    const gravityFolder = forcesTab.addFolder({ title: 'Gravity', expanded: true });
+    const gravityState = gravityPlugin.getState();
+    const applyGravityState = () => {
+      if (benchmark.isRunning()) return;
+      gravityPlugin.setState(gravityState);
+    };
+
+    gravityFolder.addBinding(gravityState, 'enabled', { label: 'Enabled' }).on('change', applyGravityState);
+    gravityFolder.addBinding(gravityState, 'strengthMps2', {
+      min: 0,
+      max: 30,
+      step: 0.01,
+      label: 'Strength (m/s²)',
+    }).on('change', applyGravityState);
+    gravityFolder.addBinding(gravityState, 'directionDeg', {
+      min: 0,
+      max: 360,
+      step: 1,
+      label: 'Direction',
+    }).on('change', applyGravityState);
+    gravityFolder.addButton({ title: 'Reset' }).on('click', () => {
+      gravityPlugin.reset();
+      Object.assign(gravityState, gravityPlugin.getState());
+      pane.refresh();
+    });
+  }
+
+  const windPlugin = forceRegistry.get('wind');
+  if (windPlugin instanceof WindForcePlugin) {
+    const windFolder = forcesTab.addFolder({ title: 'Wind', expanded: false });
+    const windState = windPlugin.getState();
+    const applyWindState = () => {
+      if (benchmark.isRunning()) return;
+      windPlugin.setState({
+        enabled: windState.enabled,
+        baseMps2: windState.baseMps2,
+        variabilityMps2: windState.variabilityMps2,
+        directionDeg: windState.directionDeg,
+        directionJitterDeg: windState.directionJitterDeg,
+        turbulenceHz: windState.turbulenceHz,
+        gustChancePerMin: windState.gustChancePerMin,
+        gustStrengthMps2: windState.gustStrengthMps2,
+        gustDurationSec: windState.gustDurationSec,
+        seed: windState.seed,
+      });
+    };
+
+    windFolder.addBinding(windState, 'enabled', { label: 'Enabled' }).on('change', applyWindState);
+    windFolder.addBinding(windState, 'baseMps2', {
+      min: -30,
+      max: 30,
+      step: 0.01,
+      label: 'Base (m/s²)',
+    }).on('change', applyWindState);
+    windFolder.addBinding(windState, 'variabilityMps2', {
+      min: 0,
+      max: 30,
+      step: 0.01,
+      label: 'Variability',
+    }).on('change', applyWindState);
+    windFolder.addBinding(windState, 'turbulenceHz', {
+      min: 0.01,
+      max: 2,
+      step: 0.01,
+      label: 'Turbulence (Hz)',
+    }).on('change', applyWindState);
+    windFolder.addBinding(windState, 'directionDeg', {
+      min: 0,
+      max: 360,
+      step: 1,
+      label: 'Direction',
+    }).on('change', applyWindState);
+    windFolder.addBinding(windState, 'directionJitterDeg', {
+      min: 0,
+      max: 90,
+      step: 1,
+      label: 'Dir Jitter',
+    }).on('change', applyWindState);
+    windFolder.addBinding(windState, 'gustChancePerMin', {
+      min: 0,
+      max: 60,
+      step: 1,
+      label: 'Gusts / Min',
+    }).on('change', applyWindState);
+    windFolder.addBinding(windState, 'gustStrengthMps2', {
+      min: 0,
+      max: 30,
+      step: 0.1,
+      label: 'Gust Strength',
+    }).on('change', applyWindState);
+    windFolder.addBinding(windState, 'gustDurationSec', {
+      min: 0.1,
+      max: 10,
+      step: 0.1,
+      label: 'Gust Duration',
+    }).on('change', applyWindState);
+    windFolder.addBinding(windState, 'seed', {
+      min: 1,
+      max: 2147483647,
+      step: 1,
+      label: 'Seed',
+    }).on('change', applyWindState);
+    windFolder.addButton({ title: 'Randomize Seed' }).on('click', () => {
+      if (benchmark.isRunning()) return;
+      windState.seed = Math.floor(Math.random() * 2147483646) + 1;
+      windPlugin.setState({ seed: windState.seed });
+      Object.assign(windState, windPlugin.getState());
+      pane.refresh();
+    });
+    windFolder.addButton({ title: 'Reset' }).on('click', () => {
+      windPlugin.reset();
+      Object.assign(windState, windPlugin.getState());
+      pane.refresh();
+    });
+  }
+
+  const radialPlugin = forceRegistry.get('radial');
+  if (radialPlugin instanceof RadialForcePlugin) {
+    const radialFolder = forcesTab.addFolder({ title: 'Radial', expanded: false });
+    const radialState = radialPlugin.getState();
+    const applyRadialState = () => {
+      if (benchmark.isRunning()) return;
+      radialPlugin.setState(radialState);
+    };
+
+    radialFolder.addBinding(radialState, 'enabled', { label: 'Enabled' }).on('change', applyRadialState);
+    radialFolder.addBinding(radialState, 'strengthMps2', {
+      min: -50,
+      max: 50,
+      step: 0.1,
+      label: 'Strength (m/s²)',
+    }).on('change', applyRadialState);
+    radialFolder.addBinding(radialState, 'centerX', {
+      min: 0,
+      max: settings.width,
+      step: 1,
+      label: 'Center X',
+    }).on('change', applyRadialState);
+    radialFolder.addBinding(radialState, 'centerY', {
+      min: 0,
+      max: settings.height,
+      step: 1,
+      label: 'Center Y',
+    }).on('change', applyRadialState);
+    radialFolder.addBinding(radialState, 'falloff', {
+      label: 'Falloff',
+      options: {
+        None: 'none',
+        'Inverse Distance': 'inverseDistance',
+        'Inverse Square': 'inverseSquare',
+      },
+    }).on('change', applyRadialState);
+    radialFolder.addButton({ title: 'Reset' }).on('click', () => {
+      radialPlugin.reset();
+      Object.assign(radialState, radialPlugin.getState());
+      pane.refresh();
+    });
+  }
 
   const rendererFolder = renderingTab.addFolder({ title: 'Renderer', expanded: true });
   rendererFolder.addBinding(rendererState, 'current', {

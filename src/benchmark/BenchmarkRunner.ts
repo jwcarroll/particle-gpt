@@ -1,4 +1,5 @@
 import { World, WorldSettings } from '../simulator';
+import { ForceRegistry } from '../forces';
 import { MetricsCollector } from './MetricsCollector';
 import {
   BenchmarkProgress,
@@ -19,16 +20,19 @@ export class BenchmarkRunner {
   private warmupEndTime = 0;
   private endTime = 0;
   private originalSettings: Partial<WorldSettings> | null = null;
+  private originalForceSnapshot: Record<string, unknown> | null = null;
   private onProgress: ((progress: BenchmarkProgress) => void) | null = null;
   private onComplete: ((result: BenchmarkResult) => void) | null = null;
+  private forceRegistry: ForceRegistry | null;
 
   // Ramp test tracking
   private currentRampParticles = 0;
   private framesBelow60 = 0;
   private breakPointParticles: number | null = null;
 
-  constructor() {
+  constructor(forceRegistry?: ForceRegistry) {
     this.collector = new MetricsCollector();
+    this.forceRegistry = forceRegistry || null;
   }
 
   isRunning(): boolean {
@@ -58,6 +62,7 @@ export class BenchmarkRunner {
 
     // Save original settings
     this.originalSettings = world.getSettings();
+    this.originalForceSnapshot = this.forceRegistry ? this.forceRegistry.snapshot() : null;
 
     // Apply scenario settings
     // Spawn rate of 100 = ~6000 particles/second at 60fps, balances ramp speed vs measurement accuracy
@@ -67,6 +72,7 @@ export class BenchmarkRunner {
       enableParticleCollision: scenario.settings.enableParticleCollision,
       spawnRate: 50,
     });
+    this.applyForcePreset(scenario);
 
     // Set timing
     const now = performance.now();
@@ -166,6 +172,10 @@ export class BenchmarkRunner {
       world.updateSettings(this.originalSettings);
       this.originalSettings = null;
     }
+    if (this.forceRegistry && this.originalForceSnapshot) {
+      this.forceRegistry.restore(this.originalForceSnapshot);
+      this.originalForceSnapshot = null;
+    }
 
     const result = this.generateResult(breakPoint);
 
@@ -188,6 +198,28 @@ export class BenchmarkRunner {
     if (this.originalSettings) {
       world.updateSettings(this.originalSettings);
       this.originalSettings = null;
+    }
+    if (this.forceRegistry && this.originalForceSnapshot) {
+      this.forceRegistry.restore(this.originalForceSnapshot);
+      this.originalForceSnapshot = null;
+    }
+  }
+
+  private applyForcePreset(scenario: BenchmarkScenario): void {
+    if (!this.forceRegistry) {
+      return;
+    }
+
+    const forcePresetId = scenario.settings.forcePresetId || 'gravityOnly';
+    if (forcePresetId === 'custom' && scenario.settings.customForceState) {
+      this.forceRegistry.restore(scenario.settings.customForceState);
+      return;
+    }
+
+    if (forcePresetId === 'gravityOnly' || forcePresetId === 'benchmarkDefault') {
+      for (const plugin of this.forceRegistry.list()) {
+        plugin.setState({ enabled: plugin.id === 'gravity' });
+      }
     }
   }
 

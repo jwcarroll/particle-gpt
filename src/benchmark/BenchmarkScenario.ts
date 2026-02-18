@@ -11,6 +11,7 @@ export const SCENARIOS: Record<string, BenchmarkScenario> = {
       minParticleCount: 1000,
       maxParticleCount: 1000,
       enableParticleCollision: false,
+      forcePresetId: 'gravityOnly',
     },
   },
   stress: {
@@ -23,6 +24,7 @@ export const SCENARIOS: Record<string, BenchmarkScenario> = {
       minParticleCount: 5000,
       maxParticleCount: 5000,
       enableParticleCollision: false,
+      forcePresetId: 'gravityOnly',
     },
   },
   collision: {
@@ -35,6 +37,7 @@ export const SCENARIOS: Record<string, BenchmarkScenario> = {
       minParticleCount: 500,
       maxParticleCount: 500,
       enableParticleCollision: true,
+      forcePresetId: 'gravityOnly',
     },
   },
   ramp: {
@@ -47,6 +50,7 @@ export const SCENARIOS: Record<string, BenchmarkScenario> = {
       minParticleCount: 100,
       maxParticleCount: 100,
       enableParticleCollision: false,
+      forcePresetId: 'gravityOnly',
       rampMode: true,
       rampStartCount: 100,
       rampEndCount: 30000,
