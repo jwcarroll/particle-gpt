@@ -41,6 +41,8 @@ export interface ScenarioSettings {
   enableParticleCollision: boolean;
   forcePresetId?: 'benchmarkDefault' | 'gravityOnly' | 'custom';
   customForceState?: Record<string, unknown>;
+  shaderPresetId?: 'benchmarkDefault' | 'shadersOff' | 'custom';
+  customShaderState?: Record<string, unknown>;
   // For ramp test
   rampMode?: boolean;
   rampStartCount?: number;

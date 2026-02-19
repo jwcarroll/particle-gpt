@@ -8,6 +8,15 @@ import { WebGLRenderer } from './renderers/WebGLRenderer';
 import { ParticleRenderer } from './renderers/ParticleRenderer';
 import { BenchmarkModule } from './benchmark';
 import { ForceRegistry, GravityForcePlugin, RadialForcePlugin, WindForcePlugin } from './forces';
+import {
+  AgeAlphaEffectPlugin,
+  ColorShiftEffectPlugin,
+  GlowEffectPlugin,
+  HeatShimmerEffectPlugin,
+  OutlineEffectPlugin,
+  ShaderRegistry,
+  VelocityTintEffectPlugin,
+} from './shaders';
 
 const canvas = document.querySelector<HTMLCanvasElement>('#canvas');
 const app = document.querySelector('#app');
@@ -26,18 +35,32 @@ if (!canvas) {
 }
 else {
   const PIXELS_PER_METER = 100;
+  const shaderRegistry = new ShaderRegistry();
+  const colorShiftEffect = new ColorShiftEffectPlugin();
+  const outlineEffect = new OutlineEffectPlugin();
+  const glowEffect = new GlowEffectPlugin();
+  const ageAlphaEffect = new AgeAlphaEffectPlugin();
+  const velocityTintEffect = new VelocityTintEffectPlugin();
+  const heatShimmerEffect = new HeatShimmerEffectPlugin();
+  shaderRegistry.register(colorShiftEffect);
+  shaderRegistry.register(outlineEffect);
+  shaderRegistry.register(glowEffect);
+  shaderRegistry.register(ageAlphaEffect);
+  shaderRegistry.register(velocityTintEffect);
+  shaderRegistry.register(heatShimmerEffect);
 
   // Create separate canvas for WebGL (can't mix 2d and webgl contexts)
   const webglCanvas = document.createElement('canvas');
   webglCanvas.id = 'webgl-canvas';
   webglCanvas.style.display = 'none';
   canvas.parentElement?.appendChild(webglCanvas);
+  const webglRenderer = new WebGLRenderer(webglCanvas, shaderRegistry);
 
   // Renderer setup with hot-swapping support
   const renderers = {
     'DoubleBuffered': new Canvas2DRenderer(canvas),
     'Direct': new DirectCanvas2DRenderer(canvas),
-    'WebGL': new WebGLRenderer(webglCanvas),
+    'WebGL': webglRenderer,
   };
   type RendererType = keyof typeof renderers;
 
@@ -80,8 +103,15 @@ else {
     fillStyle: () => `hsl(${Math.random() * 360}, 100%, 50%)`,
   });
 
-  const benchmark = new BenchmarkModule(world, forceRegistry);
-  const paneRefs = setupTweakPane(world, forceRegistry, benchmark, rendererState, (type: RendererType) => {
+  const benchmark = new BenchmarkModule(world, forceRegistry, shaderRegistry);
+  const paneRefs = setupTweakPane(
+    world,
+    forceRegistry,
+    shaderRegistry,
+    webglRenderer,
+    benchmark,
+    rendererState,
+    (type: RendererType) => {
     renderer = renderers[type];
     renderer.initialize(window.innerWidth, window.innerHeight);
     updateCanvasVisibility(type);
@@ -105,10 +135,12 @@ else {
   });
 
   let lastTime = performance.now();
+  let renderElapsedTime = 0;
 
   function animate(currentTime: number) {
     const dt = (currentTime - lastTime) / 1000;
     lastTime = currentTime;
+    renderElapsedTime += dt;
 
     paneRefs.fpsgraph.begin();
 
@@ -117,6 +149,9 @@ else {
     const updateEnd = performance.now();
 
     const renderStart = performance.now();
+    if (typeof renderer.setTime === 'function') {
+      renderer.setTime(renderElapsedTime);
+    }
     renderer.render(world.activeParticles);
     const renderEnd = performance.now();
 
@@ -187,6 +222,8 @@ function createRandomPalette(count: number): string[] {
 function setupTweakPane(
   world: World,
   forceRegistry: ForceRegistry,
+  shaderRegistry: ShaderRegistry,
+  webglRenderer: WebGLRenderer,
   benchmark: BenchmarkModule,
   rendererState: { current: string },
   onRendererChange: (type: 'DoubleBuffered' | 'Direct' | 'WebGL') => void
@@ -456,7 +493,242 @@ function setupTweakPane(
     },
   }).on('change', (ev) => {
     onRendererChange(ev.value as 'DoubleBuffered' | 'Direct' | 'WebGL');
+    updateShaderUiState();
   });
+
+  const shadersFolder = renderingTab.addFolder({ title: 'Shaders', expanded: true });
+  const shaderUiState = {
+    webglActive: rendererState.current === 'WebGL' ? 'Yes' : 'No',
+    compileStatus: webglRenderer.getCompileStatus(),
+    activeEffects: 'None',
+  };
+  const shaderBlades: BladeApi[] = [];
+
+  const updateShaderUiState = () => {
+    shaderUiState.webglActive = rendererState.current === 'WebGL' ? 'Yes' : 'No';
+    shaderUiState.compileStatus = webglRenderer.getCompileStatus();
+    const active = shaderRegistry.list()
+      .filter(plugin => plugin.getState().enabled)
+      .map(plugin => plugin.label);
+    shaderUiState.activeEffects = active.length > 0 ? active.join(', ') : 'None';
+
+    const disabled = rendererState.current !== 'WebGL';
+    for (const blade of shaderBlades) {
+      (blade as unknown as { disabled: boolean }).disabled = disabled;
+    }
+    pane.refresh();
+  };
+
+  shadersFolder.addBinding(shaderUiState, 'webglActive', { label: 'WebGL Active', readonly: true });
+  shadersFolder.addBinding(shaderUiState, 'compileStatus', { label: 'Compile', readonly: true });
+  shadersFolder.addBinding(shaderUiState, 'activeEffects', { label: 'Active', readonly: true });
+
+  const ageAlphaEffect = shaderRegistry.get('ageAlpha');
+  if (ageAlphaEffect instanceof AgeAlphaEffectPlugin) {
+    const folder = shadersFolder.addFolder({ title: 'Age Alpha', expanded: false });
+    const state = ageAlphaEffect.getState();
+    const apply = () => {
+      if (benchmark.isRunning() || rendererState.current !== 'WebGL') return;
+      ageAlphaEffect.setState(state);
+      updateShaderUiState();
+    };
+    shaderBlades.push(folder.addBinding(state, 'enabled', { label: 'Enabled' }).on('change', apply));
+    shaderBlades.push(folder.addBinding(state, 'curve', {
+      label: 'Curve',
+      options: {
+        Linear: 'linear',
+        Smoothstep: 'smoothstep',
+        Exponential: 'exponential',
+      },
+    }).on('change', apply));
+    shaderBlades.push(folder.addBinding(state, 'exponent', {
+      min: 0.2,
+      max: 5,
+      step: 0.1,
+      label: 'Exponent',
+    }).on('change', apply));
+    shaderBlades.push(folder.addButton({ title: 'Reset' }).on('click', () => {
+      ageAlphaEffect.reset();
+      Object.assign(state, ageAlphaEffect.getState());
+      updateShaderUiState();
+    }));
+  }
+
+  const velocityTintEffect = shaderRegistry.get('velocityTint');
+  if (velocityTintEffect instanceof VelocityTintEffectPlugin) {
+    const folder = shadersFolder.addFolder({ title: 'Velocity Tint', expanded: false });
+    const state = velocityTintEffect.getState();
+    const apply = () => {
+      if (benchmark.isRunning() || rendererState.current !== 'WebGL') return;
+      velocityTintEffect.setState(state);
+      updateShaderUiState();
+    };
+    shaderBlades.push(folder.addBinding(state, 'enabled', { label: 'Enabled' }).on('change', apply));
+    shaderBlades.push(folder.addBinding(state, 'minSpeed', {
+      min: 0,
+      max: 2000,
+      step: 1,
+      label: 'Min Speed',
+    }).on('change', apply));
+    shaderBlades.push(folder.addBinding(state, 'maxSpeed', {
+      min: 1,
+      max: 3000,
+      step: 1,
+      label: 'Max Speed',
+    }).on('change', apply));
+    shaderBlades.push(folder.addBinding(state, 'lowColor', {
+      label: 'Low Color',
+      view: 'color',
+    }).on('change', apply));
+    shaderBlades.push(folder.addBinding(state, 'highColor', {
+      label: 'High Color',
+      view: 'color',
+    }).on('change', apply));
+    shaderBlades.push(folder.addBinding(state, 'strength', {
+      min: 0,
+      max: 1,
+      step: 0.01,
+      label: 'Strength',
+    }).on('change', apply));
+    shaderBlades.push(folder.addButton({ title: 'Reset' }).on('click', () => {
+      velocityTintEffect.reset();
+      Object.assign(state, velocityTintEffect.getState());
+      updateShaderUiState();
+    }));
+  }
+
+  const colorShiftEffect = shaderRegistry.get('colorShift');
+  if (colorShiftEffect instanceof ColorShiftEffectPlugin) {
+    const folder = shadersFolder.addFolder({ title: 'Color Shift', expanded: false });
+    const state = colorShiftEffect.getState();
+    const apply = () => {
+      if (benchmark.isRunning() || rendererState.current !== 'WebGL') return;
+      colorShiftEffect.setState(state);
+      updateShaderUiState();
+    };
+    shaderBlades.push(folder.addBinding(state, 'enabled', { label: 'Enabled' }).on('change', apply));
+    shaderBlades.push(folder.addBinding(state, 'speed', {
+      min: 0,
+      max: 5,
+      step: 0.01,
+      label: 'Speed',
+    }).on('change', apply));
+    shaderBlades.push(folder.addBinding(state, 'amount', {
+      min: 0,
+      max: 1,
+      step: 0.01,
+      label: 'Amount',
+    }).on('change', apply));
+    shaderBlades.push(folder.addButton({ title: 'Reset' }).on('click', () => {
+      colorShiftEffect.reset();
+      Object.assign(state, colorShiftEffect.getState());
+      updateShaderUiState();
+    }));
+  }
+
+  const outlineEffect = shaderRegistry.get('outline');
+  if (outlineEffect instanceof OutlineEffectPlugin) {
+    const folder = shadersFolder.addFolder({ title: 'Outline', expanded: false });
+    const state = outlineEffect.getState();
+    const apply = () => {
+      if (benchmark.isRunning() || rendererState.current !== 'WebGL') return;
+      outlineEffect.setState(state);
+      updateShaderUiState();
+    };
+    shaderBlades.push(folder.addBinding(state, 'enabled', { label: 'Enabled' }).on('change', apply));
+    shaderBlades.push(folder.addBinding(state, 'thickness', {
+      min: 0.01,
+      max: 0.95,
+      step: 0.01,
+      label: 'Thickness',
+    }).on('change', apply));
+    shaderBlades.push(folder.addBinding(state, 'strength', {
+      min: 0,
+      max: 1,
+      step: 0.01,
+      label: 'Strength',
+    }).on('change', apply));
+    shaderBlades.push(folder.addBinding(state, 'color', {
+      label: 'Color',
+      view: 'color',
+    }).on('change', apply));
+    shaderBlades.push(folder.addButton({ title: 'Reset' }).on('click', () => {
+      outlineEffect.reset();
+      Object.assign(state, outlineEffect.getState());
+      updateShaderUiState();
+    }));
+  }
+
+  const glowEffect = shaderRegistry.get('glow');
+  if (glowEffect instanceof GlowEffectPlugin) {
+    const folder = shadersFolder.addFolder({ title: 'Glow', expanded: false });
+    const state = glowEffect.getState();
+    const apply = () => {
+      if (benchmark.isRunning() || rendererState.current !== 'WebGL') return;
+      glowEffect.setState(state);
+      updateShaderUiState();
+    };
+    shaderBlades.push(folder.addBinding(state, 'enabled', { label: 'Enabled' }).on('change', apply));
+    shaderBlades.push(folder.addBinding(state, 'radius', {
+      min: 0.01,
+      max: 0.95,
+      step: 0.01,
+      label: 'Radius',
+    }).on('change', apply));
+    shaderBlades.push(folder.addBinding(state, 'intensity', {
+      min: 0,
+      max: 2,
+      step: 0.01,
+      label: 'Intensity',
+    }).on('change', apply));
+    shaderBlades.push(folder.addButton({ title: 'Reset' }).on('click', () => {
+      glowEffect.reset();
+      Object.assign(state, glowEffect.getState());
+      updateShaderUiState();
+    }));
+  }
+
+  const heatShimmerEffect = shaderRegistry.get('heatShimmer');
+  if (heatShimmerEffect instanceof HeatShimmerEffectPlugin) {
+    const folder = shadersFolder.addFolder({ title: 'Heat Shimmer', expanded: false });
+    const state = heatShimmerEffect.getState();
+    const apply = () => {
+      if (benchmark.isRunning() || rendererState.current !== 'WebGL') return;
+      heatShimmerEffect.setState(state);
+      updateShaderUiState();
+    };
+    shaderBlades.push(folder.addBinding(state, 'enabled', { label: 'Enabled' }).on('change', apply));
+    shaderBlades.push(folder.addBinding(state, 'frequency', {
+      min: 0.1,
+      max: 40,
+      step: 0.1,
+      label: 'Frequency',
+    }).on('change', apply));
+    shaderBlades.push(folder.addBinding(state, 'amplitude', {
+      min: 0,
+      max: 0.2,
+      step: 0.001,
+      label: 'Amplitude',
+    }).on('change', apply));
+    shaderBlades.push(folder.addBinding(state, 'speed', {
+      min: 0,
+      max: 8,
+      step: 0.01,
+      label: 'Speed',
+    }).on('change', apply));
+    shaderBlades.push(folder.addBinding(state, 'strength', {
+      min: 0,
+      max: 1,
+      step: 0.01,
+      label: 'Strength',
+    }).on('change', apply));
+    shaderBlades.push(folder.addButton({ title: 'Reset' }).on('click', () => {
+      heatShimmerEffect.reset();
+      Object.assign(state, heatShimmerEffect.getState());
+      updateShaderUiState();
+    }));
+  }
+  updateShaderUiState();
 
   const colorFolder = renderingTab.addFolder({ title: 'Color', expanded: true });
   const paletteFolder = colorFolder.addFolder({ title: 'Palette', expanded: true });

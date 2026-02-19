@@ -1,5 +1,6 @@
 import { World, WorldSettings } from '../simulator';
 import { ForceRegistry } from '../forces';
+import { ShaderRegistry } from '../shaders';
 import { MetricsCollector } from './MetricsCollector';
 import {
   BenchmarkProgress,
@@ -21,18 +22,21 @@ export class BenchmarkRunner {
   private endTime = 0;
   private originalSettings: Partial<WorldSettings> | null = null;
   private originalForceSnapshot: Record<string, unknown> | null = null;
+  private originalShaderSnapshot: Record<string, unknown> | null = null;
   private onProgress: ((progress: BenchmarkProgress) => void) | null = null;
   private onComplete: ((result: BenchmarkResult) => void) | null = null;
   private forceRegistry: ForceRegistry | null;
+  private shaderRegistry: ShaderRegistry | null;
 
   // Ramp test tracking
   private currentRampParticles = 0;
   private framesBelow60 = 0;
   private breakPointParticles: number | null = null;
 
-  constructor(forceRegistry?: ForceRegistry) {
+  constructor(forceRegistry?: ForceRegistry, shaderRegistry?: ShaderRegistry) {
     this.collector = new MetricsCollector();
     this.forceRegistry = forceRegistry || null;
+    this.shaderRegistry = shaderRegistry || null;
   }
 
   isRunning(): boolean {
@@ -63,6 +67,7 @@ export class BenchmarkRunner {
     // Save original settings
     this.originalSettings = world.getSettings();
     this.originalForceSnapshot = this.forceRegistry ? this.forceRegistry.snapshot() : null;
+    this.originalShaderSnapshot = this.shaderRegistry ? this.shaderRegistry.snapshot() : null;
 
     // Apply scenario settings
     // Spawn rate of 100 = ~6000 particles/second at 60fps, balances ramp speed vs measurement accuracy
@@ -73,6 +78,7 @@ export class BenchmarkRunner {
       spawnRate: 50,
     });
     this.applyForcePreset(scenario);
+    this.applyShaderPreset(scenario);
 
     // Set timing
     const now = performance.now();
@@ -176,6 +182,10 @@ export class BenchmarkRunner {
       this.forceRegistry.restore(this.originalForceSnapshot);
       this.originalForceSnapshot = null;
     }
+    if (this.shaderRegistry && this.originalShaderSnapshot) {
+      this.shaderRegistry.restore(this.originalShaderSnapshot);
+      this.originalShaderSnapshot = null;
+    }
 
     const result = this.generateResult(breakPoint);
 
@@ -203,6 +213,10 @@ export class BenchmarkRunner {
       this.forceRegistry.restore(this.originalForceSnapshot);
       this.originalForceSnapshot = null;
     }
+    if (this.shaderRegistry && this.originalShaderSnapshot) {
+      this.shaderRegistry.restore(this.originalShaderSnapshot);
+      this.originalShaderSnapshot = null;
+    }
   }
 
   private applyForcePreset(scenario: BenchmarkScenario): void {
@@ -219,6 +233,28 @@ export class BenchmarkRunner {
     if (forcePresetId === 'gravityOnly' || forcePresetId === 'benchmarkDefault') {
       for (const plugin of this.forceRegistry.list()) {
         plugin.setState({ enabled: plugin.id === 'gravity' });
+      }
+    }
+  }
+
+  private applyShaderPreset(scenario: BenchmarkScenario): void {
+    if (!this.shaderRegistry) {
+      return;
+    }
+
+    const shaderPresetId = scenario.settings.shaderPresetId || 'shadersOff';
+    if (shaderPresetId === 'custom' && scenario.settings.customShaderState) {
+      this.shaderRegistry.restore(scenario.settings.customShaderState);
+      return;
+    }
+
+    if (shaderPresetId === 'shadersOff' || shaderPresetId === 'benchmarkDefault') {
+      for (const plugin of this.shaderRegistry.list()) {
+        if (plugin.id === 'ageAlpha') {
+          plugin.setState({ enabled: true });
+        } else {
+          plugin.setState({ enabled: false });
+        }
       }
     }
   }

@@ -12,6 +12,7 @@ export const SCENARIOS: Record<string, BenchmarkScenario> = {
       maxParticleCount: 1000,
       enableParticleCollision: false,
       forcePresetId: 'gravityOnly',
+      shaderPresetId: 'shadersOff',
     },
   },
   stress: {
@@ -25,6 +26,7 @@ export const SCENARIOS: Record<string, BenchmarkScenario> = {
       maxParticleCount: 5000,
       enableParticleCollision: false,
       forcePresetId: 'gravityOnly',
+      shaderPresetId: 'shadersOff',
     },
   },
   collision: {
@@ -38,6 +40,7 @@ export const SCENARIOS: Record<string, BenchmarkScenario> = {
       maxParticleCount: 500,
       enableParticleCollision: true,
       forcePresetId: 'gravityOnly',
+      shaderPresetId: 'shadersOff',
     },
   },
   ramp: {
@@ -51,6 +54,7 @@ export const SCENARIOS: Record<string, BenchmarkScenario> = {
       maxParticleCount: 100,
       enableParticleCollision: false,
       forcePresetId: 'gravityOnly',
+      shaderPresetId: 'shadersOff',
       rampMode: true,
       rampStartCount: 100,
       rampEndCount: 30000,
