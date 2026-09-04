@@ -2,6 +2,7 @@
 import { ParticleRenderer } from './ParticleRenderer';
 import { Particle } from '../particle';
 import { ShaderRegistry } from '../shaders';
+import { parseOpaqueColor, RgbColor } from '../colors';
 import { getBackingHeight, getBackingWidth, RenderSurfaceConfig } from './RenderSurface';
 import { ColorShiftEffectPlugin } from '../shaders/effects/ColorShiftEffect';
 import { OutlineEffectPlugin } from '../shaders/effects/OutlineEffect';
@@ -211,11 +212,9 @@ export class WebGLRenderer implements ParticleRenderer {
   // Instance data: x, y, radius, r, g, b, ageNorm, speed (8 floats per particle)
   private instanceData: Float32Array;
 
-  // Color cache to avoid re-parsing HSL every frame
-  private colorCache = new Map<string, [number, number, number]>();
   private elapsedTime = 0;
   private compileStatus: 'OK' | 'Error' = 'OK';
-  private surface!: RenderSurfaceConfig;
+  private backgroundColor: RgbColor = [0, 0, 0];
 
   constructor(
     private canvas: HTMLCanvasElement,
@@ -335,86 +334,8 @@ export class WebGLRenderer implements ParticleRenderer {
     return MAX_WEBGL_PARTICLES;
   }
 
-  private parseColor(color: string): [number, number, number] {
-    // Check cache first
-    let rgb = this.colorCache.get(color);
-    if (rgb) return rgb;
-
-    // Parse hex: #rgb, #rgba, #rrggbb, #rrggbbaa
-    const hex = color.match(/^#([0-9a-f]{3}|[0-9a-f]{4}|[0-9a-f]{6}|[0-9a-f]{8})$/i);
-    if (hex) {
-      const raw = hex[1];
-      if (raw.length === 3 || raw.length === 4) {
-        const r = parseInt(raw[0] + raw[0], 16) / 255;
-        const g = parseInt(raw[1] + raw[1], 16) / 255;
-        const b = parseInt(raw[2] + raw[2], 16) / 255;
-        rgb = [r, g, b];
-      } else {
-        const r = parseInt(raw.slice(0, 2), 16) / 255;
-        const g = parseInt(raw.slice(2, 4), 16) / 255;
-        const b = parseInt(raw.slice(4, 6), 16) / 255;
-        rgb = [r, g, b];
-      }
-    } else {
-      // Parse rgb/rgba: "rgb(R,G,B)" or "rgba(R,G,B,A)"
-      const rgbMatch = color.match(
-        /rgba?\(\s*([\d.]+)\s*,\s*([\d.]+)\s*,\s*([\d.]+)(?:\s*,\s*[\d.]+\s*)?\)/i,
-      );
-      if (rgbMatch) {
-        const r = Math.max(0, Math.min(255, parseFloat(rgbMatch[1]))) / 255;
-        const g = Math.max(0, Math.min(255, parseFloat(rgbMatch[2]))) / 255;
-        const b = Math.max(0, Math.min(255, parseFloat(rgbMatch[3]))) / 255;
-        rgb = [r, g, b];
-      } else {
-        // Parse HSL: "hsl(H, S%, L%)"
-        const hslMatch = color.match(/hsl\(\s*([\d.]+)\s*,\s*([\d.]+)%\s*,\s*([\d.]+)%\s*\)/i);
-        if (!hslMatch) {
-          // Fallback to white for unsupported color strings
-          rgb = [1, 1, 1];
-        } else {
-          const h = parseFloat(hslMatch[1]) / 360;
-          const s = parseFloat(hslMatch[2]) / 100;
-          const l = parseFloat(hslMatch[3]) / 100;
-          rgb = this.hslToRgb(h, s, l);
-        }
-      }
-    }
-
-    // Cache it (limit cache size)
-    if (this.colorCache.size > 10000) {
-      this.colorCache.clear();
-    }
-    this.colorCache.set(color, rgb);
-    return rgb;
-  }
-
-  private hslToRgb(h: number, s: number, l: number): [number, number, number] {
-    let r: number, g: number, b: number;
-
-    if (s === 0) {
-      r = g = b = l;
-    } else {
-      const hue2rgb = (p: number, q: number, t: number) => {
-        if (t < 0) t += 1;
-        if (t > 1) t -= 1;
-        if (t < 1 / 6) return p + (q - p) * 6 * t;
-        if (t < 1 / 2) return q;
-        if (t < 2 / 3) return p + (q - p) * (2 / 3 - t) * 6;
-        return p;
-      };
-
-      const q = l < 0.5 ? l * (1 + s) : l + s - l * s;
-      const p = 2 * l - q;
-      r = hue2rgb(p, q, h + 1 / 3);
-      g = hue2rgb(p, q, h);
-      b = hue2rgb(p, q, h - 1 / 3);
-    }
-
-    return [r, g, b];
-  }
-
   initialize(surface: RenderSurfaceConfig): void {
-    this.surface = surface;
+    this.backgroundColor = parseOpaqueColor(surface.backgroundColor);
     const backingWidth = getBackingWidth(surface);
     const backingHeight = getBackingHeight(surface);
     this.canvas.width = backingWidth;
@@ -432,7 +353,7 @@ export class WebGLRenderer implements ParticleRenderer {
     for (let i = 0; i < count; i++) {
       const p = particles[i];
       const base = i * 8;
-      const [r, g, b] = this.parseColor(p.fillStyle);
+      const [r, g, b] = p.color;
       const ageNorm =
         p.maxLifeSpan === null ? 0.0 : Math.min(Math.max(p.timeAlive / p.maxLifeSpan, 0), 1);
       const speed = Math.sqrt(p.velocity.x * p.velocity.x + p.velocity.y * p.velocity.y);
@@ -448,9 +369,7 @@ export class WebGLRenderer implements ParticleRenderer {
     }
 
     // Clear
-    const [backgroundRed, backgroundGreen, backgroundBlue] = this.parseColor(
-      this.surface.backgroundColor,
-    );
+    const [backgroundRed, backgroundGreen, backgroundBlue] = this.backgroundColor;
     gl.clearColor(backgroundRed, backgroundGreen, backgroundBlue, 1);
     gl.clear(gl.COLOR_BUFFER_BIT);
 
@@ -524,7 +443,7 @@ export class WebGLRenderer implements ParticleRenderer {
       gl.uniform1f(this.outlineEnabledLoc, state.enabled ? 1 : 0);
       gl.uniform1f(this.outlineThicknessLoc, state.thickness);
       gl.uniform1f(this.outlineStrengthLoc, state.strength);
-      const [r, g, b] = this.parseColor(state.color);
+      const [r, g, b] = parseOpaqueColor(state.color);
       gl.uniform3f(this.outlineColorLoc, r, g, b);
     } else {
       gl.uniform1f(this.outlineEnabledLoc, 0);
@@ -569,8 +488,8 @@ export class WebGLRenderer implements ParticleRenderer {
       gl.uniform1f(this.velocityTintEnabledLoc, state.enabled ? 1 : 0);
       gl.uniform1f(this.velocityTintMinSpeedLoc, state.minSpeed);
       gl.uniform1f(this.velocityTintMaxSpeedLoc, state.maxSpeed);
-      const [lowR, lowG, lowB] = this.parseColor(state.lowColor);
-      const [highR, highG, highB] = this.parseColor(state.highColor);
+      const [lowR, lowG, lowB] = parseOpaqueColor(state.lowColor);
+      const [highR, highG, highB] = parseOpaqueColor(state.highColor);
       gl.uniform3f(this.velocityTintLowColorLoc, lowR, lowG, lowB);
       gl.uniform3f(this.velocityTintHighColorLoc, highR, highG, highB);
       gl.uniform1f(this.velocityTintStrengthLoc, state.strength);
@@ -601,7 +520,7 @@ export class WebGLRenderer implements ParticleRenderer {
   }
 
   resize(surface: RenderSurfaceConfig): void {
-    this.surface = surface;
+    this.backgroundColor = parseOpaqueColor(surface.backgroundColor);
     const backingWidth = getBackingWidth(surface);
     const backingHeight = getBackingHeight(surface);
     this.canvas.width = backingWidth;

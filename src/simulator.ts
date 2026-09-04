@@ -63,7 +63,7 @@ const defaultSettings: WorldSettings = {
   maxParticleLifeSpan: 10,
   elasticity: 0.7,
   enableParticleCollision: true,
-  fillStyle: 'blue',
+  fillStyle: '#0000ff',
   emissionRate: 1_800,
 };
 
@@ -170,7 +170,7 @@ export class World {
   }
 
   getParticleFromPool(): Particle {
-    return this.particlePool.pop() || new Particle(0, 0, new Vector(0, 0), 0, '', 0);
+    return this.particlePool.pop() || new Particle(0, 0, new Vector(0, 0), 0, '#000000', 0);
   }
 
   returnParticleToPool(particle: Particle): void {

@@ -16,7 +16,10 @@ function createWorld(): World {
     maxStartingAngle: 360,
     minParticleLifeSpan: 2,
     maxParticleLifeSpan: 8,
-    fillStyle: (random) => `seeded-${Math.floor(random() * 10_000)}`,
+    fillStyle: (random) =>
+      `#${Math.floor(random() * 0xffffff)
+        .toString(16)
+        .padStart(6, '0')}`,
     emissionRate: 2,
   });
   return world;

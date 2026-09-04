@@ -1,4 +1,5 @@
 import { Vector } from './vector';
+import { parseOpaqueColor, RgbColor } from './colors';
 
 export class Particle {
   x: number;
@@ -9,6 +10,7 @@ export class Particle {
   radius: number;
   maxLifeSpan: number | null;
   fillStyle: string;
+  color: RgbColor;
 
   private _timeAlive: number = 0;
 
@@ -21,7 +23,7 @@ export class Particle {
     y: number,
     velocity: Vector,
     radius: number,
-    fillStyle: string = 'blue',
+    fillStyle: string = '#0000ff',
     maxLifeSpan?: number,
   ) {
     this.x = x;
@@ -31,6 +33,7 @@ export class Particle {
     this.velocity = velocity;
     this.radius = radius;
     this.fillStyle = fillStyle;
+    this.color = parseOpaqueColor(fillStyle);
     this.maxLifeSpan = maxLifeSpan || null;
   }
 
@@ -72,6 +75,7 @@ export class Particle {
     this.velocity.y = velocity.y;
     this.radius = radius;
     this.fillStyle = fillStyle;
+    this.color = parseOpaqueColor(fillStyle);
     this.maxLifeSpan = maxLifeSpan;
     this._timeAlive = 0;
   }
