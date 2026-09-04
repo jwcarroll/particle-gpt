@@ -4,6 +4,8 @@ import { Vector } from "./vector";
 export class Particle {
   x: number;
   y: number;
+  previousX: number;
+  previousY: number;
   velocity: Vector;
   radius: number;
   maxLifeSpan: number | null;
@@ -18,6 +20,8 @@ export class Particle {
   constructor(x: number, y: number, velocity: Vector, radius: number, fillStyle: string = 'blue', maxLifeSpan?: number) {
     this.x = x;
     this.y = y;
+    this.previousX = x;
+    this.previousY = y;
     this.velocity = velocity;
     this.radius = radius;
     this.fillStyle = fillStyle;
@@ -31,13 +35,25 @@ export class Particle {
   update(dt: number) {
     this._timeAlive += dt;
 
+    this.previousX = this.x;
+    this.previousY = this.y;
     this.x += this.velocity.x * dt;
     this.y += this.velocity.y * dt;
+  }
+
+  getInterpolatedX(alpha: number): number {
+    return this.previousX + (this.x - this.previousX) * alpha;
+  }
+
+  getInterpolatedY(alpha: number): number {
+    return this.previousY + (this.y - this.previousY) * alpha;
   }
 
   reset(x: number, y: number, velocity: Vector, radius: number, fillStyle: string, maxLifeSpan: number): void {
     this.x = x;
     this.y = y;
+    this.previousX = x;
+    this.previousY = y;
     // Keep the same velocity object to reduce allocations during pool reuse.
     this.velocity.x = velocity.x;
     this.velocity.y = velocity.y;

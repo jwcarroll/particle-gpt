@@ -8,9 +8,9 @@ export const SCENARIOS: Record<string, BenchmarkScenario> = {
     duration: 10,
     warmupDuration: 2,
     settings: {
-      minParticleCount: 1000,
       maxParticleCount: 1000,
       enableParticleCollision: false,
+      seed: 1337,
       forcePresetId: 'gravityOnly',
       shaderPresetId: 'shadersOff',
     },
@@ -22,9 +22,9 @@ export const SCENARIOS: Record<string, BenchmarkScenario> = {
     duration: 10,
     warmupDuration: 2,
     settings: {
-      minParticleCount: 5000,
       maxParticleCount: 5000,
       enableParticleCollision: false,
+      seed: 1337,
       forcePresetId: 'gravityOnly',
       shaderPresetId: 'shadersOff',
     },
@@ -36,9 +36,9 @@ export const SCENARIOS: Record<string, BenchmarkScenario> = {
     duration: 10,
     warmupDuration: 2,
     settings: {
-      minParticleCount: 500,
       maxParticleCount: 500,
       enableParticleCollision: true,
+      seed: 1337,
       forcePresetId: 'gravityOnly',
       shaderPresetId: 'shadersOff',
     },
@@ -50,9 +50,9 @@ export const SCENARIOS: Record<string, BenchmarkScenario> = {
     duration: 60, // Max duration, will stop early when limit found
     warmupDuration: 1,
     settings: {
-      minParticleCount: 100,
       maxParticleCount: 100,
       enableParticleCollision: false,
+      seed: 1337,
       forcePresetId: 'gravityOnly',
       shaderPresetId: 'shadersOff',
       rampMode: true,

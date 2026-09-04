@@ -20,11 +20,20 @@ import { Force } from "./force";
 import { Particle } from "./particle";
 import { Vector } from "./vector";
 import { ForceContext, ForceVector } from "./forces";
+import { createSeededRandom, RandomSource } from "./random";
+
+export const MAX_PARTICLE_COUNT = 50_000;
+export const MAX_PARTICLE_EMISSION_RATE = 1_000_000;
+
+export type PopulationTrimPolicy = 'oldest-first' | 'immediate-arbitrary';
+
+export interface ResetPopulationOptions {
+  seed?: number;
+}
 
 export interface WorldSettings {
   height: number;
   width: number;
-  minParticleCount: number;
   maxParticleCount: number;
   minParticleRadius: number;
   maxParticleRadius: number;
@@ -36,14 +45,13 @@ export interface WorldSettings {
   maxParticleLifeSpan: number;
   elasticity: number;
   enableParticleCollision: boolean;
-  fillStyle: string | (() => string);
-  spawnRate: number;
+  fillStyle: string | ((random: RandomSource) => string);
+  emissionRate: number;
 }
 
 const defaultSettings: WorldSettings = {
   height: 0,
   width: 0,
-  minParticleCount: 100,
   maxParticleCount: 1000,
   minParticleRadius: 5,
   maxParticleRadius: 10,
@@ -56,7 +64,7 @@ const defaultSettings: WorldSettings = {
   elasticity: 0.7,
   enableParticleCollision: true,
   fillStyle: 'blue',
-  spawnRate: 30,
+  emissionRate: 1_800,
 };
 
 
@@ -72,17 +80,95 @@ export class World {
   private _collisionGrid: Map<string, number[]> = new Map();
   private _forceProvider: ((context: ForceContext) => ForceVector) | null = null;
   private _elapsedTime = 0;
+  private _emissionAccumulator = 0;
+  private _randomSource: RandomSource = Math.random;
 
   getSettings() {
     return { ...this._settings };
   }
 
   updateSettings(settings: Partial<WorldSettings>) {
+    if (settings.maxParticleCount !== undefined) {
+      this.validatePopulationCount(settings.maxParticleCount);
+    }
+    if (settings.emissionRate !== undefined) {
+      this.validateEmissionRate(settings.emissionRate);
+    }
     this._settings = { ...this._settings, ...settings };
+    if (this.activeParticles.length >= this._settings.maxParticleCount) {
+      this._emissionAccumulator = 0;
+    }
   }
 
   setForceProvider(provider: ((context: ForceContext) => ForceVector) | null): void {
     this._forceProvider = provider;
+  }
+
+  getRandomSource(): RandomSource {
+    return this._randomSource;
+  }
+
+  setRandomSource(randomSource: RandomSource): void {
+    this._randomSource = randomSource;
+  }
+
+  setTargetPopulation(count: number): void {
+    this.validatePopulationCount(count);
+    this._settings.maxParticleCount = count;
+    if (this.activeParticles.length >= count) {
+      this._emissionAccumulator = 0;
+    }
+  }
+
+  setEmissionRate(particlesPerSecond: number): void {
+    this.validateEmissionRate(particlesPerSecond);
+    this._settings.emissionRate = particlesPerSecond;
+    if (particlesPerSecond === 0) {
+      this._emissionAccumulator = 0;
+    }
+  }
+
+  trimPopulation(count: number, policy: PopulationTrimPolicy = 'immediate-arbitrary'): void {
+    this.validatePopulationCount(count);
+    if (policy === 'oldest-first') {
+      this.activeParticles.sort((first, second) => first.timeAlive - second.timeAlive);
+    } else if (policy !== 'immediate-arbitrary') {
+      throw new RangeError(`Unknown population trim policy: ${policy as string}.`);
+    }
+
+    if (count >= this.activeParticles.length) {
+      return;
+    }
+
+    while (this.activeParticles.length > count) {
+      const particle = this.activeParticles.pop();
+      if (particle) {
+        this.returnParticleToPool(particle);
+      }
+    }
+    this._emissionAccumulator = 0;
+  }
+
+  resetPopulation(count: number, options: ResetPopulationOptions = {}): void {
+    this.validatePopulationCount(count);
+
+    while (this.activeParticles.length > 0) {
+      const particle = this.activeParticles.pop();
+      if (particle) {
+        this.returnParticleToPool(particle);
+      }
+    }
+
+    if (options.seed !== undefined) {
+      this._randomSource = createSeededRandom(options.seed);
+    }
+
+    this._elapsedTime = 0;
+    this._emissionAccumulator = 0;
+
+    for (let i = 0; i < count; i++) {
+      this.addRandomParticle();
+    }
   }
 
   getParticleFromPool(): Particle {
@@ -112,6 +198,9 @@ export class World {
   }
 
   update(dt: number) {
+    if (!Number.isFinite(dt) || dt < 0) {
+      throw new RangeError('World update delta must be a finite, non-negative number of seconds.');
+    }
     this._elapsedTime += dt;
 
     let totalForceX = 0;
@@ -166,7 +255,7 @@ export class World {
       this.handleParticlesCollidingWithOneAnother(this._settings.elasticity);
     }
 
-    this.refillParticles();
+    this.refillParticles(dt);
   }
 
   handleParticleCollidingWithBoundingBox(particle: Particle, height: number, width: number, elasticity: number) {
@@ -189,16 +278,16 @@ export class World {
   }
 
   private addRandomParticle() {
-    const x = Math.random() * this._settings.width;
-    const y = Math.random() * this._settings.height;
-    const startingAngleDegrees = getRandomNumberBetween(this._settings.minStartingAngle, this._settings.maxStartingAngle);
+    const x = this._randomSource() * this._settings.width;
+    const y = this._randomSource() * this._settings.height;
+    const startingAngleDegrees = this.getRandomNumberBetween(this._settings.minStartingAngle, this._settings.maxStartingAngle);
     const startingAngleRadians = startingAngleDegrees * (Math.PI / 180);
-    const velocity = getRandomNumberBetween(this._settings.minParticleVelocity, this._settings.maxParticleVelocity);
+    const velocity = this.getRandomNumberBetween(this._settings.minParticleVelocity, this._settings.maxParticleVelocity);
     const velocityX = Math.cos(startingAngleRadians) * velocity;
     const velocityY = Math.sin(startingAngleRadians) * velocity;
     const radius = this.getRadius();
     const fillStyle = this.getFillStyle();
-    const maxLifeSpan = getRandomNumberBetween(this._settings.minParticleLifeSpan, this._settings.maxParticleLifeSpan);
+    const maxLifeSpan = this.getRandomNumberBetween(this._settings.minParticleLifeSpan, this._settings.maxParticleLifeSpan);
 
     const particle = this.getParticleFromPool();
     particle.velocity.x = velocityX;
@@ -228,22 +317,30 @@ export class World {
     };
   }
 
-  private refillParticles() {
+  private refillParticles(dt: number) {
     const particleCount = this.activeParticles.length;
-    const maxParticleCount = this._settings.maxParticleCount;
-    const spawnRate = this._settings.spawnRate;
+    const targetPopulation = this._settings.maxParticleCount;
+    if (particleCount >= targetPopulation) {
+      this._emissionAccumulator = 0;
+      return;
+    }
 
-    // If below max, add particles up to spawn rate
-    if (particleCount < maxParticleCount) {
-      const particlesToAdd = Math.min(spawnRate, maxParticleCount - particleCount);
-      for (let i = 0; i < particlesToAdd; i++) {
-        this.addRandomParticle();
-      }
+    this._emissionAccumulator += this._settings.emissionRate * dt;
+    const availableParticles = Math.floor(this._emissionAccumulator + 1e-12);
+    const particlesToAdd = Math.min(availableParticles, targetPopulation - particleCount);
+    this._emissionAccumulator -= particlesToAdd;
+
+    for (let i = 0; i < particlesToAdd; i++) {
+      this.addRandomParticle();
+    }
+
+    if (this.activeParticles.length >= targetPopulation) {
+      this._emissionAccumulator = 0;
     }
   }
 
   private getRadius() {
-    return Math.random() * (this._settings.maxParticleRadius - this._settings.minParticleRadius) + this._settings.minParticleRadius;
+    return this.getRandomNumberBetween(this._settings.minParticleRadius, this._settings.maxParticleRadius);
   }
 
   private getFillStyle() {
@@ -251,7 +348,25 @@ export class World {
       return this._settings.fillStyle;
     }
 
-    return this._settings.fillStyle();
+    return this._settings.fillStyle(this._randomSource);
+  }
+
+  private getRandomNumberBetween(min: number, max: number): number {
+    return this._randomSource() * (max - min) + min;
+  }
+
+  private validatePopulationCount(count: number): void {
+    if (!Number.isInteger(count) || count < 0 || count > MAX_PARTICLE_COUNT) {
+      throw new RangeError(`Particle count must be an integer from 0 to ${MAX_PARTICLE_COUNT}.`);
+    }
+  }
+
+  private validateEmissionRate(rate: number): void {
+    if (!Number.isFinite(rate) || rate < 0 || rate > MAX_PARTICLE_EMISSION_RATE) {
+      throw new RangeError(
+        `Particle emission rate must be a finite number from 0 to ${MAX_PARTICLE_EMISSION_RATE}.`,
+      );
+    }
   }
 
   private handleParticlesCollidingWithOneAnother(elasticity: number) {
@@ -361,8 +476,4 @@ export class World {
     p2.velocity.x -= impulseX;
     p2.velocity.y -= impulseY;
   }
-}
-
-function getRandomNumberBetween(min: number, max: number) {
-  return Math.random() * (max - min) + min;
 }

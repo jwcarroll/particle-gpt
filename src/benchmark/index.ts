@@ -34,6 +34,10 @@ export class BenchmarkModule {
     this.runner.recordFrame(data, this.world);
   }
 
+  invalidate(reason: string): void {
+    this.runner.invalidate(reason, this.world);
+  }
+
   isRunning(): boolean {
     return this.runner.isRunning();
   }

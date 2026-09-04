@@ -36,9 +36,9 @@ export interface BenchmarkScenario {
 }
 
 export interface ScenarioSettings {
-  minParticleCount: number;
   maxParticleCount: number;
   enableParticleCollision: boolean;
+  seed: number;
   forcePresetId?: 'benchmarkDefault' | 'gravityOnly' | 'custom';
   customForceState?: Record<string, unknown>;
   shaderPresetId?: 'benchmarkDefault' | 'shadersOff' | 'custom';
@@ -87,7 +87,7 @@ export interface PercentageChange {
   improved: boolean;
 }
 
-export type BenchmarkState = 'idle' | 'warmup' | 'running' | 'complete';
+export type BenchmarkState = 'idle' | 'warmup' | 'running' | 'complete' | 'invalid';
 
 export interface BenchmarkProgress {
   state: BenchmarkState;

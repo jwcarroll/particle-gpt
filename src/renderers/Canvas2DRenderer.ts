@@ -29,7 +29,7 @@ export class Canvas2DRenderer implements ParticleRenderer {
         this.offscreenCtx = offscreenCtx;
     }
 
-    render(particles: Particle[]): void {
+    render(particles: Particle[], interpolationAlpha: number = 1): void {
         // Clear offscreen
         this.offscreenCtx.clearRect(0, 0, this.offscreen.width, this.offscreen.height);
 
@@ -48,7 +48,13 @@ export class Canvas2DRenderer implements ParticleRenderer {
 
             for (const p of particles) {
                 this.offscreenCtx.beginPath();
-                this.offscreenCtx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
+                this.offscreenCtx.arc(
+                    p.getInterpolatedX(interpolationAlpha),
+                    p.getInterpolatedY(interpolationAlpha),
+                    p.radius,
+                    0,
+                    Math.PI * 2,
+                );
 
                 if (p.maxLifeSpan !== null) {
                     this.offscreenCtx.globalAlpha = 1 - p.timeAlive / p.maxLifeSpan;
@@ -56,6 +62,8 @@ export class Canvas2DRenderer implements ParticleRenderer {
 
                 this.offscreenCtx.fill();
             }
+
+            this.offscreenCtx.globalAlpha = 1.0;
         });
 
         // Copy to main canvas

@@ -1,0 +1,1084 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Implementation-ready modernization specification for the Particle GPT simulation laboratory.">
+  <title>Particle GPT — Modernization Specification</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --ink: #111b22;
+      --ink-soft: #40515b;
+      --paper: #f2efe6;
+      --paper-bright: #fbfaf5;
+      --line: #c9d0cc;
+      --line-strong: #8d9b9d;
+      --accent: #00bfd1;
+      --accent-dark: #007e8d;
+      --night: #081116;
+      --night-soft: #12232b;
+      --measure: 72rem;
+      --shadow: 0 20px 50px rgb(9 23 29 / 12%);
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html {
+      scroll-behavior: smooth;
+      scroll-padding-top: 4.5rem;
+    }
+
+    body {
+      margin: 0;
+      overflow-x: hidden;
+      color: var(--ink);
+      background: var(--paper);
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      line-height: 1.6;
+      text-rendering: optimizeLegibility;
+    }
+
+    a {
+      color: var(--accent-dark);
+      text-decoration-thickness: 1px;
+      text-underline-offset: 0.18em;
+    }
+
+    a:hover {
+      color: var(--ink);
+    }
+
+    code,
+    pre,
+    .eyebrow,
+    .status,
+    .metric-label,
+    .phase-number,
+    .tag,
+    .toc a {
+      font-family: "Cascadia Code", "SFMono-Regular", Consolas, monospace;
+    }
+
+    code {
+      padding: 0.08em 0.28em;
+      border: 1px solid rgb(17 27 34 / 12%);
+      background: rgb(255 255 255 / 45%);
+      font-size: 0.9em;
+    }
+
+    pre {
+      overflow-x: auto;
+      margin: 1.25rem 0;
+      padding: 1rem 1.1rem;
+      color: #d7f8f7;
+      background: var(--night);
+      border-left: 3px solid var(--accent);
+      font-size: 0.82rem;
+      line-height: 1.55;
+    }
+
+    h1,
+    h2,
+    h3,
+    p,
+    ul,
+    ol {
+      margin-top: 0;
+    }
+
+    h1,
+    h2,
+    h3 {
+      line-height: 1.08;
+      letter-spacing: -0.035em;
+    }
+
+    h1 {
+      max-width: 12ch;
+      margin-bottom: 1.5rem;
+      font-size: clamp(3.5rem, 8vw, 8.5rem);
+      font-weight: 720;
+    }
+
+    h2 {
+      margin-bottom: 1.25rem;
+      font-size: clamp(2rem, 4vw, 4.25rem);
+      font-weight: 680;
+    }
+
+    h3 {
+      margin-bottom: 0.65rem;
+      font-size: clamp(1.15rem, 2vw, 1.6rem);
+    }
+
+    p,
+    li {
+      max-width: 70ch;
+    }
+
+    .progress {
+      position: fixed;
+      z-index: 20;
+      inset: 0 0 auto;
+      height: 3px;
+      transform: scaleX(0);
+      transform-origin: left;
+      background: var(--accent);
+    }
+
+    .topbar {
+      position: absolute;
+      z-index: 10;
+      inset: 0 0 auto;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 1.2rem clamp(1.2rem, 4vw, 4.5rem);
+      color: #d9e4e5;
+      border-bottom: 1px solid rgb(255 255 255 / 14%);
+    }
+
+    .brand {
+      color: white;
+      font-weight: 720;
+      letter-spacing: -0.02em;
+      text-decoration: none;
+    }
+
+    .status {
+      color: var(--accent);
+      font-size: 0.72rem;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    .hero {
+      position: relative;
+      display: grid;
+      min-height: 100svh;
+      padding: 8rem clamp(1.2rem, 7vw, 8rem) 4rem;
+      overflow: hidden;
+      color: white;
+      background: var(--night);
+      isolation: isolate;
+    }
+
+    .hero::after {
+      content: "";
+      position: absolute;
+      z-index: -1;
+      inset: auto 0 0;
+      height: 28%;
+      background: linear-gradient(to top, rgb(0 191 209 / 13%), transparent);
+    }
+
+    .hero-copy {
+      z-index: 2;
+      align-self: center;
+      max-width: 60rem;
+      animation: enter 700ms cubic-bezier(.2,.8,.2,1) both;
+    }
+
+    .eyebrow {
+      margin-bottom: 1.5rem;
+      color: var(--accent);
+      font-size: 0.78rem;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+    }
+
+    .hero-summary {
+      max-width: 47rem;
+      margin-bottom: 2rem;
+      color: #bac9cb;
+      font-size: clamp(1.05rem, 1.8vw, 1.35rem);
+    }
+
+    .hero-meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.75rem 2rem;
+      color: #819498;
+      font-size: 0.8rem;
+    }
+
+    .particle-field {
+      position: absolute;
+      z-index: 1;
+      right: -8vw;
+      bottom: -6vh;
+      width: min(68vw, 72rem);
+      opacity: 0.8;
+      filter: drop-shadow(0 0 30px rgb(0 191 209 / 16%));
+      animation: drift 12s ease-in-out infinite alternate;
+      pointer-events: none;
+    }
+
+    .shell {
+      display: grid;
+      grid-template-columns: minmax(12rem, 17rem) minmax(0, 1fr);
+      max-width: 98rem;
+      margin: 0 auto;
+    }
+
+    .toc {
+      position: sticky;
+      top: 0;
+      align-self: start;
+      height: 100svh;
+      padding: 4rem 2rem;
+      border-right: 1px solid var(--line);
+    }
+
+    .toc-label {
+      margin-bottom: 1rem;
+      color: var(--ink-soft);
+      font-size: 0.72rem;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+    }
+
+    .toc a {
+      display: block;
+      padding: 0.48rem 0;
+      color: var(--ink-soft);
+      font-size: 0.78rem;
+      text-decoration: none;
+    }
+
+    .toc a:hover,
+    .toc a:focus {
+      color: var(--accent-dark);
+    }
+
+    main {
+      min-width: 0;
+      background: var(--paper-bright);
+    }
+
+    section {
+      padding: clamp(4rem, 8vw, 8rem) clamp(1.25rem, 6vw, 7rem);
+      border-bottom: 1px solid var(--line);
+    }
+
+    section > * {
+      max-width: var(--measure);
+    }
+
+    .section-intro {
+      margin-bottom: 3rem;
+      color: var(--ink-soft);
+      font-size: 1.05rem;
+    }
+
+    .lead {
+      max-width: 44rem;
+      font-size: clamp(1.2rem, 2vw, 1.55rem);
+      line-height: 1.45;
+    }
+
+    .callout {
+      margin: 2rem 0;
+      padding: 1.4rem 0 1.4rem 1.5rem;
+      border-left: 4px solid var(--accent);
+      color: var(--ink-soft);
+      font-size: 1.05rem;
+    }
+
+    .metrics {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      margin: 3rem 0;
+      border-block: 1px solid var(--line-strong);
+    }
+
+    .metric {
+      padding: 1.3rem 1.2rem 1.5rem 0;
+      border-right: 1px solid var(--line);
+    }
+
+    .metric:not(:first-child) {
+      padding-left: 1.2rem;
+    }
+
+    .metric:last-child {
+      border-right: 0;
+    }
+
+    .metric-value {
+      display: block;
+      font-size: clamp(1.8rem, 3vw, 3rem);
+      font-weight: 700;
+      letter-spacing: -0.04em;
+    }
+
+    .metric-label {
+      display: block;
+      margin-top: 0.25rem;
+      color: var(--ink-soft);
+      font-size: 0.7rem;
+      text-transform: uppercase;
+    }
+
+    .ledger {
+      margin-top: 2.5rem;
+      border-top: 1px solid var(--line-strong);
+    }
+
+    .ledger-row {
+      display: grid;
+      grid-template-columns: minmax(9rem, 0.75fr) minmax(0, 2fr);
+      gap: 2rem;
+      padding: 1.5rem 0;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .ledger-row h3,
+    .ledger-row p {
+      margin: 0;
+    }
+
+    .ledger-row p {
+      color: var(--ink-soft);
+    }
+
+    .priority {
+      display: inline-block;
+      margin-bottom: 0.6rem;
+      color: var(--accent-dark);
+      font-family: "Cascadia Code", monospace;
+      font-size: 0.72rem;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    .architecture {
+      margin: 2.5rem 0;
+      padding: clamp(1.5rem, 4vw, 3.5rem);
+      color: white;
+      background: var(--night);
+      box-shadow: var(--shadow);
+    }
+
+    .architecture svg {
+      display: block;
+      width: 100%;
+      height: auto;
+    }
+
+    .requirements {
+      counter-reset: req;
+      border-top: 1px solid var(--line-strong);
+    }
+
+    .workstream {
+      display: grid;
+      grid-template-columns: 5rem minmax(0, 1fr);
+      gap: 1.5rem;
+      padding: 2.2rem 0;
+      border-bottom: 1px solid var(--line);
+      counter-increment: req;
+    }
+
+    .workstream::before {
+      content: "W" counter(req, decimal-leading-zero);
+      color: var(--accent-dark);
+      font-family: "Cascadia Code", monospace;
+      font-size: 0.85rem;
+    }
+
+    .workstream ul {
+      padding-left: 1.2rem;
+      color: var(--ink-soft);
+    }
+
+    details {
+      margin-top: 1rem;
+      border-top: 1px dashed var(--line-strong);
+    }
+
+    summary {
+      padding: 0.8rem 0;
+      color: var(--accent-dark);
+      font-weight: 650;
+      cursor: pointer;
+    }
+
+    details[open] summary {
+      margin-bottom: 0.5rem;
+    }
+
+    .app-frame {
+      display: grid;
+      grid-template-rows: 3rem minmax(20rem, 52vh) 3.5rem;
+      margin: 2.5rem 0;
+      overflow: hidden;
+      color: #dbe9ea;
+      background: #071015;
+      border: 1px solid #1c353e;
+      box-shadow: var(--shadow);
+    }
+
+    .app-top,
+    .transport {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 1rem;
+      border-bottom: 1px solid #1c353e;
+      font-family: "Cascadia Code", monospace;
+      font-size: 0.75rem;
+    }
+
+    .transport {
+      justify-content: center;
+      gap: 1.5rem;
+      border-top: 1px solid #1c353e;
+      border-bottom: 0;
+    }
+
+    .workspace {
+      position: relative;
+      overflow: hidden;
+      background:
+        radial-gradient(circle at 22% 60%, rgb(0 191 209 / 18%), transparent 28%),
+        radial-gradient(circle at 65% 30%, rgb(0 191 209 / 10%), transparent 24%),
+        #050b0f;
+    }
+
+    .workspace::before,
+    .workspace::after {
+      content: "";
+      position: absolute;
+      border-radius: 50%;
+      box-shadow:
+        4rem 3rem 0 0.35rem rgb(0 191 209 / 45%),
+        9rem -2rem 0 0.7rem rgb(255 255 255 / 18%),
+        15rem 5rem 0 0.5rem rgb(0 191 209 / 32%),
+        23rem 1rem 0 0.9rem rgb(255 255 255 / 12%),
+        30rem 7rem 0 0.35rem rgb(0 191 209 / 40%);
+      width: 0.55rem;
+      height: 0.55rem;
+      background: var(--accent);
+    }
+
+    .workspace::before {
+      left: 10%;
+      top: 24%;
+    }
+
+    .workspace::after {
+      left: 30%;
+      top: 52%;
+      transform: scale(0.75);
+    }
+
+    .inspector {
+      position: absolute;
+      inset: 0 0 0 auto;
+      width: min(19rem, 38%);
+      padding: 1.1rem;
+      color: #a9bdc0;
+      background: rgb(13 27 34 / 94%);
+      border-left: 1px solid #28424b;
+      font-size: 0.78rem;
+    }
+
+    .inspector strong {
+      display: block;
+      margin-bottom: 1rem;
+      color: white;
+      font-size: 0.95rem;
+    }
+
+    .control-line {
+      display: flex;
+      justify-content: space-between;
+      padding: 0.55rem 0;
+      border-bottom: 1px solid rgb(255 255 255 / 8%);
+    }
+
+    .phases {
+      border-top: 1px solid var(--line-strong);
+    }
+
+    .phase {
+      display: grid;
+      grid-template-columns: 6rem minmax(0, 1fr) minmax(12rem, 0.7fr);
+      gap: 2rem;
+      padding: 2rem 0;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .phase-number {
+      color: var(--accent-dark);
+      font-size: 0.75rem;
+      text-transform: uppercase;
+    }
+
+    .phase p {
+      margin: 0;
+      color: var(--ink-soft);
+    }
+
+    .tag {
+      font-size: 0.7rem;
+      color: var(--ink-soft);
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 2rem 0;
+      font-size: 0.9rem;
+    }
+
+    th,
+    td {
+      padding: 0.9rem 0.8rem;
+      text-align: left;
+      vertical-align: top;
+      border-bottom: 1px solid var(--line);
+    }
+
+    th {
+      color: var(--ink-soft);
+      font-family: "Cascadia Code", monospace;
+      font-size: 0.7rem;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+    }
+
+    footer {
+      padding: 3rem clamp(1.25rem, 6vw, 7rem);
+      color: #9dafb2;
+      background: var(--night);
+    }
+
+    footer p {
+      margin-bottom: 0;
+    }
+
+    @keyframes enter {
+      from { opacity: 0; transform: translateY(24px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    @keyframes drift {
+      from { transform: translate3d(0, 0, 0) rotate(-2deg); }
+      to { transform: translate3d(-2vw, -2vh, 0) rotate(1deg); }
+    }
+
+    @media (max-width: 850px) {
+      .hero {
+        padding-top: 7rem;
+      }
+
+      .particle-field {
+        width: 115vw;
+        right: -38vw;
+        opacity: 0.45;
+      }
+
+      .shell {
+        display: block;
+      }
+
+      .toc {
+        position: relative;
+        width: 100%;
+        height: auto;
+        padding: 1.2rem;
+        columns: 2;
+        border-right: 0;
+        border-bottom: 1px solid var(--line);
+      }
+
+      .toc-label {
+        column-span: all;
+      }
+
+      .metrics {
+        grid-template-columns: repeat(2, 1fr);
+      }
+
+      .metric:nth-child(2) {
+        border-right: 0;
+      }
+
+      .metric:nth-child(-n + 2) {
+        border-bottom: 1px solid var(--line);
+      }
+
+      .ledger-row,
+      .phase {
+        grid-template-columns: 1fr;
+        gap: 0.65rem;
+      }
+
+      .workstream {
+        grid-template-columns: 3.25rem minmax(0, 1fr);
+      }
+
+      .inspector {
+        inset: auto 0 0;
+        width: 100%;
+        max-height: 44%;
+        border-top: 1px solid #28424b;
+        border-left: 0;
+      }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      html { scroll-behavior: auto; }
+      .hero-copy,
+      .particle-field { animation: none; }
+    }
+
+    @media print {
+      .progress,
+      .topbar,
+      .toc { display: none; }
+      .hero { min-height: 0; padding: 3rem; }
+      .shell { display: block; }
+      section { padding: 2rem 0; break-inside: avoid; }
+      .app-frame,
+      .architecture { box-shadow: none; }
+      details { display: block; }
+      details > * { display: block; }
+    }
+  </style>
+</head>
+<body>
+  <div class="progress" aria-hidden="true"></div>
+  <header class="topbar">
+    <a class="brand" href="#top">Particle GPT</a>
+    <span class="status">Proposed · 2026-09-04</span>
+  </header>
+
+  <div class="hero" id="top">
+    <div class="hero-copy">
+      <p class="eyebrow">Modernization specification / v1.0</p>
+      <h1>A trustworthy particle laboratory.</h1>
+      <p class="hero-summary">Evolve a capable graphics experiment into a deterministic simulation instrument with comparable renderers, defensible benchmarks, extensible plugins, and a deliberate product shell.</p>
+      <div class="hero-meta">
+        <span>Repository: particle-gpt</span>
+        <span>Audience: implementers and reviewing LLMs</span>
+        <span>Authority: proposed until ADRs are accepted</span>
+      </div>
+    </div>
+
+    <svg class="particle-field" viewBox="0 0 900 620" role="img" aria-label="Abstract field of cyan particles moving through a dark simulation space">
+      <defs>
+        <radialGradient id="particleGlow">
+          <stop offset="0" stop-color="#d8ffff" stop-opacity=".95"/>
+          <stop offset=".35" stop-color="#00bfd1" stop-opacity=".72"/>
+          <stop offset="1" stop-color="#00bfd1" stop-opacity="0"/>
+        </radialGradient>
+      </defs>
+      <path d="M70 510 C250 300 520 590 850 160" fill="none" stroke="#00bfd1" stroke-opacity=".13" stroke-width="2"/>
+      <path d="M20 420 C260 570 580 190 880 350" fill="none" stroke="#d8ffff" stroke-opacity=".08" stroke-width="1"/>
+      <g fill="url(#particleGlow)">
+        <circle cx="92" cy="487" r="42"/><circle cx="182" cy="408" r="24"/><circle cx="256" cy="465" r="51"/>
+        <circle cx="341" cy="355" r="31"/><circle cx="421" cy="426" r="17"/><circle cx="487" cy="325" r="57"/>
+        <circle cx="584" cy="366" r="29"/><circle cx="648" cy="251" r="43"/><circle cx="742" cy="260" r="18"/>
+        <circle cx="811" cy="154" r="52"/><circle cx="532" cy="514" r="20"/><circle cx="702" cy="475" r="33"/>
+      </g>
+      <g fill="#d8ffff">
+        <circle cx="125" cy="354" r="4"/><circle cx="218" cy="537" r="6"/><circle cx="303" cy="286" r="5"/>
+        <circle cx="386" cy="502" r="7"/><circle cx="453" cy="244" r="4"/><circle cx="553" cy="428" r="6"/>
+        <circle cx="674" cy="326" r="5"/><circle cx="760" cy="391" r="7"/><circle cx="835" cy="292" r="4"/>
+      </g>
+    </svg>
+  </div>
+
+  <div class="shell">
+    <nav class="toc" aria-label="Specification sections">
+      <p class="toc-label">Navigate</p>
+      <a href="#mandate">01 Mandate</a>
+      <a href="#baseline">02 Baseline</a>
+      <a href="#findings">03 Findings</a>
+      <a href="#outcomes">04 Outcomes</a>
+      <a href="#architecture">05 Architecture</a>
+      <a href="#requirements">06 Workstreams</a>
+      <a href="#experience">07 Experience</a>
+      <a href="#delivery">08 Delivery</a>
+      <a href="#quality">09 Quality gates</a>
+      <a href="#handoff">10 Cold handoff</a>
+    </nav>
+
+    <main>
+      <section id="mandate">
+        <p class="eyebrow">01 / Mandate</p>
+        <h2>Build confidence before breadth.</h2>
+        <p class="lead">The next version should make the simulation reproducible, benchmarks honest, and renderer behavior intentional. New effects and forces become cheaper only after those foundations are explicit.</p>
+        <div class="callout"><strong>Primary success measure:</strong> an implementer can run the same declared workload twice, explain every material input, compare only compatible results, and obtain equivalent simulation behavior across rendering frame rates.</div>
+
+        <h3>Scope</h3>
+        <ul>
+          <li>Simulation timing, population lifecycle, and deterministic input.</li>
+          <li>Renderer capability detection, common surface configuration, and high-DPI behavior.</li>
+          <li>Versioned benchmark manifests, exact scenario setup, restoration, and guarded comparison.</li>
+          <li>Self-describing built-in force and effect plugins.</li>
+          <li>A restrained full-canvas application shell with direct manipulation and sharable presets.</li>
+          <li>Tests, validation scripts, CI, and documentation that support progressive LLM discovery.</li>
+        </ul>
+
+        <h3>Non-goals</h3>
+        <ul>
+          <li>Changing from a browser application to a native engine.</li>
+          <li>Loading arbitrary third-party JavaScript or shader source at runtime.</li>
+          <li>Rewriting every module in one migration.</li>
+          <li>Claiming physically accurate fluid or rigid-body simulation.</li>
+          <li>Requiring exact pixel identity between Canvas2D and WebGL.</li>
+          <li>Introducing a framework solely to replace the current imperative UI.</li>
+        </ul>
+      </section>
+
+      <section id="baseline">
+        <p class="eyebrow">02 / Verified baseline</p>
+        <h2>Capable core, demo-era contracts.</h2>
+        <p class="section-intro">These facts describe the repository reviewed on 2026-09-04. They are not target-state claims.</p>
+
+        <div class="metrics" aria-label="Repository measurements">
+          <div class="metric"><span class="metric-value">875</span><span class="metric-label">Lines in main.ts</span></div>
+          <div class="metric"><span class="metric-value">604</span><span class="metric-label">Lines in WebGL renderer</span></div>
+          <div class="metric"><span class="metric-value">3</span><span class="metric-label">Renderer implementations</span></div>
+          <div class="metric"><span class="metric-value">0</span><span class="metric-label">Test files found</span></div>
+        </div>
+
+        <div class="ledger">
+          <div class="ledger-row">
+            <h3>Simulation</h3>
+            <p>Mutable particles with pooling, boundary response, equal-mass collision impulses, a spatial collision grid, lifespans, and configurable generation ranges.</p>
+          </div>
+          <div class="ledger-row">
+            <h3>Forces</h3>
+            <p>Legacy named uniform forces plus a registry containing gravity, deterministic natural wind, and centroid-based radial force plugins.</p>
+          </div>
+          <div class="ledger-row">
+            <h3>Rendering</h3>
+            <p>Direct Canvas2D, OffscreenCanvas-buffered Canvas2D, and WebGL 1 instancing with six configurable effect states.</p>
+          </div>
+          <div class="ledger-row">
+            <h3>Benchmarking</h3>
+            <p>Four built-in scenarios, frame metrics, local persistence, JSON import/export, baseline comparison, and an integrated Tweakpane workflow.</p>
+          </div>
+          <div class="ledger-row">
+            <h3>Validation observed</h3>
+            <p><code>npm test</code> passes 17 deterministic clock, population, and benchmark tests, and <code>npm run build</code> passes. Browser validation is repeated for slices that touch runtime scheduling or rendering.</p>
+          </div>
+          <div class="ledger-row">
+            <h3>Tooling</h3>
+            <p>Strict TypeScript, Vite build, and Node-based TypeScript test scripts exist. Lint, formatter, browser tests, CI, repository README, and runtime schema validation do not. The accidental package self-dependency has been removed.</p>
+          </div>
+        </div>
+      </section>
+
+      <section id="findings">
+        <p class="eyebrow">03 / Findings</p>
+        <h2>What can mislead or fail today.</h2>
+        <p class="section-intro">Priority reflects correctness and trust, not implementation difficulty.</p>
+
+        <div class="ledger">
+          <div class="ledger-row">
+            <div><span class="priority">Resolved · First slice</span><h3>Scenario counts are now guaranteed at start</h3></div>
+            <p>Built-in scenarios now call <code>World.resetPopulation(count, { seed })</code> before warmup, so fixed and ramp scenarios begin at their exact declared population regardless of prior UI state.</p>
+          </div>
+          <div class="ledger-row">
+            <div><span class="priority">Resolved · Second slice</span><h3>Physics timing is independent from render cadence</h3></div>
+            <p>A DOM-free clock now advances physics at a fixed 60 Hz, retains bounded catch-up backlog, skips rendering when behind, and supplies interpolation alpha to every renderer. Emission uses simulated seconds, ramp failure uses elapsed milliseconds, hidden time is discarded, and affected benchmarks are invalidated.</p>
+          </div>
+          <div class="ledger-row">
+            <div><span class="priority">P1 · Availability</span><h3>Optional WebGL is a startup dependency</h3></div>
+            <p>The WebGL renderer is constructed before renderer choice. Failure to create WebGL or the instancing extension can prevent Canvas2D from loading, even though Canvas2D is the default. Evidence: <code>src/main.ts:52-63</code>.</p>
+          </div>
+          <div class="ledger-row">
+            <div><span class="priority">P1 · Comparability</span><h3>Renderer runs are not equivalent</h3></div>
+            <p>Canvas inherits the page background while WebGL clears opaque black. Device-pixel-ratio handling, color support, alpha state, and particle capacity also differ. Renderer benchmarks currently mix implementation cost with different visual work.</p>
+          </div>
+          <div class="ledger-row">
+            <div><span class="priority">P2 · Evidence</span><h3>Results omit workload-defining context</h3></div>
+            <p>Saved results lack renderer, backing-buffer size, effects, complete force state, clock configuration, seed, thresholds, and code revision. The comparison path accepts mismatched runs and still produces a verdict.</p>
+          </div>
+          <div class="ledger-row">
+            <div><span class="priority">P2 · Extensibility</span><h3>Plugins remain manually centralized</h3></div>
+            <p>Registries store state, but UI controls and shader uniforms require concrete imports and branching in the two largest files. State snapshots are shallow and restored through unchecked casts.</p>
+          </div>
+          <div class="ledger-row">
+            <div><span class="priority">P2 · Semantics</span><h3>Radial force is not a radial field</h3></div>
+            <p>The force context provides only the swarm centroid, and the registry calculates one vector per frame. Every particle receives the same acceleration toward or away from the configured center.</p>
+          </div>
+          <div class="ledger-row">
+            <div><span class="priority">P3 · Product quality</span><h3>The instrument still presents as a scaffold</h3></div>
+            <p>The title and favicon remain “Vite + TS,” desktop controls truncate tab labels, and the fixed 256-pixel inspector consumes roughly two thirds of a 390-pixel mobile viewport. There is no pause, step, reset, preset sharing, or direct canvas interaction.</p>
+          </div>
+        </div>
+      </section>
+
+      <section id="outcomes">
+        <p class="eyebrow">04 / Target outcomes</p>
+        <h2>Definition of success.</h2>
+        <div class="ledger">
+          <div class="ledger-row"><h3>Deterministic</h3><p>Identical seed, inputs, and simulated duration produce equivalent world state across common render cadences.</p></div>
+          <div class="ledger-row"><h3>Comparable</h3><p>Every benchmark carries a versioned manifest; incompatible workloads are rejected or explicitly labeled exploratory.</p></div>
+          <div class="ledger-row"><h3>Resilient</h3><p>Canvas2D works without WebGL. Renderer failures are localized, explained, and recoverable without changing simulation state.</p></div>
+          <div class="ledger-row"><h3>Extensible</h3><p>Built-in plugins declare state, units, controls, version, validation, determinism, and capability needs.</p></div>
+          <div class="ledger-row"><h3>Operable</h3><p>Users can pause, step, reset, select presets, manipulate the field, share a scene, and understand benchmark context.</p></div>
+          <div class="ledger-row"><h3>Maintainable</h3><p>Core behavior is unit tested; renderer and benchmark workflows have focused browser coverage; CI enforces the documented gates.</p></div>
+        </div>
+      </section>
+
+      <section id="architecture">
+        <p class="eyebrow">05 / Architecture direction</p>
+        <h2>Separate the clock, world, surfaces, and evidence.</h2>
+        <p class="section-intro">Introduce these boundaries incrementally. The arrows show intended dependency direction.</p>
+
+        <div class="architecture">
+          <svg viewBox="0 0 1000 470" role="img" aria-label="Target component relationships from application shell through controllers to the world, renderers, plugins, and benchmark evidence">
+            <defs>
+              <marker id="arrow" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 Z" fill="#00bfd1"/></marker>
+            </defs>
+            <g fill="none" stroke="#00bfd1" stroke-width="2" stroke-opacity=".72" marker-end="url(#arrow)">
+              <path d="M500 76 V122"/><path d="M500 194 V234"/><path d="M500 306 V350"/>
+              <path d="M460 158 H267"/><path d="M540 158 H733"/>
+              <path d="M460 270 H267"/><path d="M540 270 H733"/>
+              <path d="M460 386 H267"/><path d="M540 386 H733"/>
+            </g>
+            <g fill="#10232b" stroke="#36515b">
+              <rect x="370" y="20" width="260" height="56"/><rect x="380" y="122" width="240" height="72"/>
+              <rect x="70" y="126" width="197" height="64"/><rect x="733" y="126" width="197" height="64"/>
+              <rect x="380" y="234" width="240" height="72"/><rect x="70" y="238" width="197" height="64"/>
+              <rect x="733" y="238" width="197" height="64"/><rect x="380" y="350" width="240" height="72"/>
+              <rect x="70" y="354" width="197" height="64"/><rect x="733" y="354" width="197" height="64"/>
+            </g>
+            <g fill="#e8fafa" text-anchor="middle" font-family="Inter, sans-serif" font-size="18" font-weight="650">
+              <text x="500" y="54">Application shell</text><text x="500" y="157">Simulation controller</text>
+              <text x="168" y="164">View adapters</text><text x="832" y="164">Preset / URL state</text>
+              <text x="500" y="269">Simulation clock</text><text x="168" y="276">Input events</text>
+              <text x="832" y="276">Benchmark controller</text><text x="500" y="385">World</text>
+              <text x="168" y="392">Plugin catalog</text><text x="832" y="392">Renderer manager</text>
+            </g>
+            <g fill="#799398" text-anchor="middle" font-family="Cascadia Code, monospace" font-size="12">
+              <text x="500" y="177">pause · step · reset</text><text x="168" y="181">canvas · inspector</text>
+              <text x="832" y="181">validated schema</text><text x="500" y="289">fixed step · bounded catch-up</text>
+              <text x="168" y="293">pointer · keyboard</text><text x="832" y="293">manifest · metrics</text>
+              <text x="500" y="405">particles · collisions · population</text><text x="168" y="409">forces · effects</text>
+              <text x="832" y="409">capabilities · surfaces</text>
+            </g>
+          </svg>
+        </div>
+
+        <p>Domain code must not depend on DOM, Tweakpane, local storage, or renderer implementations. Controllers translate browser events and UI intent into domain operations. Benchmarking assembles an immutable workload and observes the same public controller/world interfaces used by the product.</p>
+      </section>
+
+      <section id="requirements">
+        <p class="eyebrow">06 / Workstreams</p>
+        <h2>Implementation requirements.</h2>
+        <p class="section-intro">Each workstream is independently reviewable, but the delivery order later in this document controls sequencing.</p>
+
+        <div class="requirements">
+          <article class="workstream">
+            <div>
+              <h3>Foundation and safety net</h3>
+              <ul>
+                <li>Remove the package self-dependency without changing runtime behavior.</li>
+                <li>Add unit-test, lint, formatting, and CI scripts with documented Node support.</li>
+                <li>Cover vector zero-length behavior, particle lifetime/reset, registry snapshots, metric percentiles, and comparison compatibility.</li>
+                <li>Split the composition root only along implemented boundaries; do not begin with a broad rewrite.</li>
+              </ul>
+              <details><summary>Acceptance criteria</summary><ul><li>Clean install and production build pass in CI.</li><li>Tests are deterministic and do not require a browser for domain modules.</li><li><code>AGENTS.md</code> and development commands match package scripts.</li><li>No generated output is committed.</li></ul></details>
+            </div>
+          </article>
+
+          <article class="workstream">
+            <div>
+              <h3>Clock and population semantics</h3>
+              <ul>
+                <li>Implement the fixed-step, clamped, bounded-catch-up clock from ADR-0001.</li>
+                <li>Implement explicit reset, target, trim, and particles-per-second emission APIs from ADR-0002.</li>
+                <li>Inject a seeded random source for particle generation and deterministic plugins.</li>
+                <li>Pause cleanly on document visibility changes; benchmarks pause or invalidate rather than including hidden time.</li>
+              </ul>
+              <details><summary>Acceptance criteria</summary><ul><li>60 Hz and 144 Hz schedules converge to the same state for a deterministic fixture.</li><li>A suspended tab cannot inject an unbounded world step.</li><li>Every benchmark scenario starts with its exact declared count.</li><li>Emission count depends on simulated seconds, not rendered frames.</li></ul></details>
+            </div>
+          </article>
+
+          <article class="workstream">
+            <div>
+              <h3>Renderer manager and parity</h3>
+              <ul>
+                <li>Create renderers lazily and expose structured capability results.</li>
+                <li>Share logical size, device pixel ratio, background, clear behavior, and normalized particle colors.</li>
+                <li>Restore all Canvas context state and surface the WebGL particle ceiling.</li>
+                <li>Handle resize and WebGL context loss without mutating the world.</li>
+              </ul>
+              <details><summary>Acceptance criteria</summary><ul><li>The application remains usable when WebGL or instancing is unavailable.</li><li>Renderer switching preserves the exact particle state.</li><li>Effect-off reference scenes pass defined visual tolerances.</li><li>High-DPI backing buffers scale without changing world coordinates.</li></ul></details>
+            </div>
+          </article>
+
+          <article class="workstream">
+            <div>
+              <h3>Benchmark integrity</h3>
+              <ul>
+                <li>Implement the versioned manifest and compatibility fingerprint from ADR-0005.</li>
+                <li>Unify complete and cancel cleanup paths and restore exact user state.</li>
+                <li>Replace frame-count timing windows with elapsed-time windows.</li>
+                <li>Validate imported JSON deeply and make unsupported versions view-only or migrate them.</li>
+                <li>Show configuration differences, sample quality, and individual metrics before any verdict.</li>
+              </ul>
+              <details><summary>Acceptance criteria</summary><ul><li>Renderer, viewport, DPR, clock, seed, forces, effects, thresholds, scenario version, and build identity are recorded.</li><li>Incompatible runs are rejected by default with visible reasons.</li><li>Zero-sample and interrupted runs cannot be saved as completed baselines.</li><li>Export/import round-trips without losing manifest fields.</li></ul></details>
+            </div>
+          </article>
+
+          <article class="workstream">
+            <div>
+              <h3>Plugin contracts</h3>
+              <ul>
+                <li>Add stable kind and schema version, runtime validation, units, control descriptors, determinism metadata, and capability requirements.</li>
+                <li>Generate common controls through a UI adapter rather than plugin dependencies on Tweakpane.</li>
+                <li>Separate uniform forces from per-particle field forces; implement true attractor/repulsor behavior as per-particle evaluation.</li>
+                <li>Keep effect implementations trusted and built in; do not accept arbitrary shader text.</li>
+              </ul>
+              <details><summary>Acceptance criteria</summary><ul><li>Adding a normal built-in plugin requires catalog registration, not bespoke composition-root controls.</li><li>Invalid or unknown snapshot versions fail without partially applying state.</li><li>Uniform and per-particle evaluation costs are visible in benchmark manifests.</li><li>Preset snapshots and exact replay snapshots have documented differences.</li></ul></details>
+            </div>
+          </article>
+
+          <article class="workstream">
+            <div>
+              <h3>Product shell and interaction</h3>
+              <ul>
+                <li>Replace Vite title/favicon and make the product identity visible without competing with the canvas.</li>
+                <li>Add play, pause, single-step, reset, seed, background, preset, and share controls.</li>
+                <li>Use a collapsible right inspector on desktop and an accessible bottom sheet on narrow viewports.</li>
+                <li>Add direct canvas tools for attractor, repulsor, vortex, and emitter placement.</li>
+                <li>Add optional trails and vector-field overlays, plus PNG capture; consider video capture only after the core is stable.</li>
+              </ul>
+              <details><summary>Acceptance criteria</summary><ul><li>The full canvas remains the primary workspace.</li><li>Core controls are keyboard accessible and usable at 390px width.</li><li>A shared URL recreates validated scene configuration and seed.</li><li>Reduced-motion preferences disable ornamental motion without affecting simulation controls.</li></ul></details>
+            </div>
+          </article>
+        </div>
+      </section>
+
+      <section id="experience">
+        <p class="eyebrow">07 / Experience direction</p>
+        <h2>The canvas is the product.</h2>
+        <p class="section-intro">The interface should feel like a calm scientific instrument: one workspace, one inspector, and one transport surface. Avoid dashboard cards and decorative chrome.</p>
+
+        <div class="app-frame" role="img" aria-label="Conceptual application layout with branded top bar, full particle canvas, right inspector, and bottom transport controls">
+          <div class="app-top"><span>PARTICLE GPT / FIELD 01</span><span>WEBGL · 1,000 · 60 FPS</span></div>
+          <div class="workspace">
+            <aside class="inspector">
+              <strong>Scene inspector</strong>
+              <div class="control-line"><span>Preset</span><span>Low gravity</span></div>
+              <div class="control-line"><span>Renderer</span><span>WebGL</span></div>
+              <div class="control-line"><span>Population</span><span>1,000</span></div>
+              <div class="control-line"><span>Gravity</span><span>3.20 m/s²</span></div>
+              <div class="control-line"><span>Field tool</span><span>Attractor</span></div>
+              <div class="control-line"><span>Seed</span><span>01337</span></div>
+            </aside>
+          </div>
+          <div class="transport"><span>RESET</span><span>◀ STEP</span><span>❚❚ PAUSE</span><span>SHARE</span></div>
+        </div>
+
+        <div class="ledger">
+          <div class="ledger-row"><h3>Orientation</h3><p>Show product, scene name, renderer, particle count, and FPS in one quiet status line.</p></div>
+          <div class="ledger-row"><h3>Operation</h3><p>Keep transport actions persistent. Move detailed editing to the inspector and field creation to direct canvas tools.</p></div>
+          <div class="ledger-row"><h3>Feedback</h3><p>Use brief transitions for inspector disclosure, tool changes, and preset application. Simulation motion already supplies visual energy.</p></div>
+          <div class="ledger-row"><h3>Mobile</h3><p>Use a collapsed bottom sheet with generous touch targets. Never permanently cover most of the canvas with controls.</p></div>
+        </div>
+      </section>
+
+      <section id="delivery">
+        <p class="eyebrow">08 / Delivery sequence</p>
+        <h2>Five reviewable phases.</h2>
+        <div class="phases">
+          <div class="phase"><span class="phase-number">Phase 0</span><div><h3>Guardrails</h3><p>Package cleanup, tests, lint/format, CI, runtime validation seams, and characterization tests for current behavior.</p></div><span class="tag">Exit: safe refactoring baseline</span></div>
+          <div class="phase"><span class="phase-number">Phase 1</span><div><h3>Deterministic world</h3><p>Clock, explicit population lifecycle, seeded generation, pause/step/reset, and benchmark scenario reset.</p></div><span class="tag">Exit: cadence-independent fixtures</span></div>
+          <div class="phase"><span class="phase-number">Phase 2</span><div><h3>Comparable surfaces</h3><p>Renderer manager, lazy WebGL, common background/color/DPR policy, context recovery, and parity fixtures.</p></div><span class="tag">Exit: graceful fallback + parity</span></div>
+          <div class="phase"><span class="phase-number">Phase 3</span><div><h3>Defensible evidence</h3><p>Benchmark manifest, compatibility fingerprint, restored state, deep import validation, and comparison UI.</p></div><span class="tag">Exit: trustworthy baselines</span></div>
+          <div class="phase"><span class="phase-number">Phase 4</span><div><h3>Laboratory experience</h3><p>Self-describing plugin controls, true field forces, branded shell, responsive inspector, presets, URL sharing, overlays, and capture.</p></div><span class="tag">Exit: coherent product workflow</span></div>
+        </div>
+
+        <h3>Current implementation progress</h3>
+        <p><strong>First and second slices implemented.</strong> The repository now has deterministic unit tests, exact seeded population reset, explicit target/trim/time-based emission operations, a fixed-step simulation clock, interpolated rendering, visibility handling, and benchmark invalidation for compromised timing. The next work package should finish Phase 0 automation or begin Phase 2 with the lazy WebGL availability defect as a focused renderer-boundary slice.</p>
+      </section>
+
+      <section id="quality">
+        <p class="eyebrow">09 / Quality gates</p>
+        <h2>Evidence required to call it done.</h2>
+        <table>
+          <thead><tr><th>Gate</th><th>Required evidence</th><th>Failure means</th></tr></thead>
+          <tbody>
+            <tr><td>Build</td><td>Strict TypeScript and production Vite build pass from a clean install.</td><td>The change is not deliverable.</td></tr>
+            <tr><td>Domain</td><td>Deterministic unit tests cover changed clock, population, force, particle, collision, metric, or schema behavior.</td><td>Semantics are not protected.</td></tr>
+            <tr><td>Rendering</td><td>Canvas2D and WebGL smoke tests plus parity fixtures at standard and high DPI; fallback is exercised.</td><td>Renderer work is incomplete.</td></tr>
+            <tr><td>Benchmark</td><td>Exact setup, warmup isolation, complete/cancel restoration, manifest completeness, and mismatch rejection pass.</td><td>Results must remain labeled diagnostic.</td></tr>
+            <tr><td>Experience</td><td>Desktop and 390px review, keyboard flow, contrast, inspector collapse, and reduced motion pass.</td><td>The UI is not ready to replace the current controls.</td></tr>
+            <tr><td>Documentation</td><td>Commands, current limitations, types, persistence version, and ADR status match implementation.</td><td>A cold handoff is unsafe.</td></tr>
+          </tbody>
+        </table>
+
+        <h3>Global definition of done</h3>
+        <ul>
+          <li>No silent fallback, truncation, schema coercion, or incompatible benchmark comparison.</li>
+          <li>No per-frame allocation regression without measured justification.</li>
+          <li>No UI control whose label disagrees with runtime units or behavior.</li>
+          <li>Every failure path preserves or restores user state and produces an actionable message.</li>
+          <li>The final handoff lists commands run, observed results, skipped checks, and remaining uncertainty.</li>
+        </ul>
+      </section>
+
+      <section id="handoff">
+        <p class="eyebrow">10 / Cold-LLM handoff</p>
+        <h2>How to pick this up safely.</h2>
+        <ol>
+          <li>Read repository-root <a href="../AGENTS.md"><code>AGENTS.md</code></a>.</li>
+          <li>Use <a href="README.md"><code>docs/README.md</code></a> to select only the task-specific references.</li>
+          <li>Inspect <code>git status</code>; preserve unrelated user changes.</li>
+          <li>Confirm current behavior in code. This specification is proposed target state, not proof of implementation.</li>
+          <li>Read the relevant ADR before changing a contract. All ADRs begin as Proposed.</li>
+          <li>Implement one coherent work package and its tests. Avoid combining tooling, physics, renderer, benchmark, and visual redesign in one change.</li>
+          <li>Run the risk-appropriate validation from <a href="development.md"><code>docs/development.md</code></a>.</li>
+          <li>Update documentation and ADR status only when the repository genuinely reaches that state.</li>
+        </ol>
+
+        <h3>Document map</h3>
+        <table>
+          <thead><tr><th>Document</th><th>Use it for</th></tr></thead>
+          <tbody>
+            <tr><td><a href="architecture.md">architecture.md</a></td><td>Current topology, runtime flow, state ownership, units, and boundaries.</td></tr>
+            <tr><td><a href="development.md">development.md</a></td><td>Commands, workflow, dependency discipline, and validation matrix.</td></tr>
+            <tr><td><a href="benchmarking.md">benchmarking.md</a></td><td>Current benchmark caveats, target lifecycle, manifest, and comparison policy.</td></tr>
+            <tr><td><a href="versioning.md">versioning.md</a></td><td>Semantic Versioning, Conventional Commits, and release checklist.</td></tr>
+            <tr><td><a href="adrs/README.md">adrs/</a></td><td>Durable proposed decisions for clock, population, renderers, plugins, and manifests.</td></tr>
+          </tbody>
+        </table>
+
+        <div class="callout"><strong>Do not infer completion from this document.</strong> A requirement becomes current behavior only after code, tests, validation, and relevant documentation agree.</div>
+      </section>
+    </main>
+  </div>
+
+  <footer>
+    <p>Particle GPT modernization specification · Prepared 2026-09-04 · Standalone HTML with companion progressive documentation.</p>
+  </footer>
+
+  <script>
+    const progress = document.querySelector('.progress');
+    const updateProgress = () => {
+      const root = document.documentElement;
+      const remaining = root.scrollHeight - root.clientHeight;
+      const ratio = remaining > 0 ? root.scrollTop / remaining : 0;
+      progress.style.transform = `scaleX(${Math.min(Math.max(ratio, 0), 1)})`;
+    };
+    document.addEventListener('scroll', updateProgress, { passive: true });
+    updateProgress();
+  </script>
+</body>
+</html>

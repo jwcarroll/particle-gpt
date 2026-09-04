@@ -17,6 +17,7 @@ import {
   ShaderRegistry,
   VelocityTintEffectPlugin,
 } from './shaders';
+import { SimulationClock } from './SimulationClock';
 
 const canvas = document.querySelector<HTMLCanvasElement>('#canvas');
 const app = document.querySelector('#app');
@@ -92,7 +93,6 @@ else {
   world.updateSettings({
     height: window.innerHeight,
     width: window.innerWidth,
-    minParticleCount: 500,
     maxParticleCount: 1000,
     minParticleLifeSpan: 5,
     maxParticleLifeSpan: 15,
@@ -100,7 +100,7 @@ else {
     maxParticleRadius: 20,
     enableParticleCollision: false,
     elasticity: 0.7,
-    fillStyle: () => `hsl(${Math.random() * 360}, 100%, 50%)`,
+    fillStyle: (random) => `hsl(${random() * 360}, 100%, 50%)`,
   });
 
   const benchmark = new BenchmarkModule(world, forceRegistry, shaderRegistry);
@@ -134,33 +134,48 @@ else {
     });
   });
 
-  let lastTime = performance.now();
-  let renderElapsedTime = 0;
+  const simulationClock = new SimulationClock();
+
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'hidden') {
+      simulationClock.pause();
+      benchmark.invalidate('document visibility changed');
+      return;
+    }
+
+    simulationClock.resume(performance.now());
+  });
 
   function animate(currentTime: number) {
-    const dt = (currentTime - lastTime) / 1000;
-    lastTime = currentTime;
-    renderElapsedTime += dt;
-
     paneRefs.fpsgraph.begin();
 
     const updateStart = performance.now();
-    world.update(dt);
+    const clockFrame = simulationClock.advance(currentTime, (fixedStepSeconds) => {
+      world.update(fixedStepSeconds);
+    });
     const updateEnd = performance.now();
 
-    const renderStart = performance.now();
-    if (typeof renderer.setTime === 'function') {
-      renderer.setTime(renderElapsedTime);
+    if (clockFrame.clamped) {
+      benchmark.invalidate('wall-clock time was clamped');
+    } else if (clockFrame.overloaded) {
+      benchmark.invalidate('physics could not keep pace with wall time');
     }
-    renderer.render(world.activeParticles);
-    const renderEnd = performance.now();
 
-    benchmark.recordFrame({
-      updateTime: updateEnd - updateStart,
-      renderTime: renderEnd - renderStart,
-      particleCount: world.particleCount,
-      poolSize: world.particlePool.length,
-    });
+    if (clockFrame.shouldRender) {
+      const renderStart = performance.now();
+      if (typeof renderer.setTime === 'function') {
+        renderer.setTime(clockFrame.presentationTimeSeconds);
+      }
+      renderer.render(world.activeParticles, clockFrame.interpolationAlpha);
+      const renderEnd = performance.now();
+
+      benchmark.recordFrame({
+        updateTime: updateEnd - updateStart,
+        renderTime: renderEnd - renderStart,
+        particleCount: world.particleCount,
+        poolSize: world.particlePool.length,
+      });
+    }
 
     paneRefs.fpsgraph.end();
 
@@ -188,7 +203,7 @@ type ColorMode = 'solid' | 'rainbow' | 'preset';
 type ColorPreset = 'water' | 'fire' | 'forest' | 'sunset';
 
 type PaneState = {
-  particleCountRange: IntervalRange;
+  targetPopulation: number;
   lifespanRange: IntervalRange;
   radiusRange: IntervalRange;
   velocityRange: IntervalRange;
@@ -236,10 +251,7 @@ function setupTweakPane(
   const initialRainbowCount = 7;
 
   const paneState: PaneState = {
-    particleCountRange: {
-      min: settings.minParticleCount,
-      max: settings.maxParticleCount,
-    },
+    targetPopulation: settings.maxParticleCount,
     lifespanRange: {
       min: settings.minParticleLifeSpan,
       max: settings.maxParticleLifeSpan,
@@ -284,13 +296,18 @@ function setupTweakPane(
   const motionFolder = simulationTab.addFolder({ title: 'Motion', expanded: false });
   const collisionFolder = simulationTab.addFolder({ title: 'Collision', expanded: false });
 
-  populationFolder.addBinding(paneState, 'particleCountRange', {
+  populationFolder.addBinding(paneState, 'targetPopulation', {
     min: 0,
     max: 50000,
     step: 10,
-    label: 'Count Range',
+    label: 'Target',
   });
-  populationFolder.addBinding(settings, 'spawnRate', { min: 10, max: 1000, step: 10, label: 'Spawn Rate' });
+  populationFolder.addBinding(settings, 'emissionRate', {
+    min: 0,
+    max: 10000,
+    step: 60,
+    label: 'Emission / sec',
+  });
   populationFolder.addBinding(world, 'particleCount', { label: 'Particles', readonly: true });
 
   lifespanAndSizeFolder.addBinding(paneState, 'lifespanRange', {
@@ -849,8 +866,7 @@ function setupTweakPane(
     // Don't overwrite settings while benchmark is running
     if (benchmark.isRunning()) return;
 
-    settings.minParticleCount = paneState.particleCountRange.min;
-    settings.maxParticleCount = paneState.particleCountRange.max;
+    settings.maxParticleCount = paneState.targetPopulation;
     settings.minParticleLifeSpan = paneState.lifespanRange.min;
     settings.maxParticleLifeSpan = paneState.lifespanRange.max;
     settings.minParticleRadius = paneState.radiusRange.min;
@@ -859,12 +875,12 @@ function setupTweakPane(
     settings.maxParticleVelocity = paneState.velocityRange.max;
     settings.minStartingAngle = paneState.angleRange.min;
     settings.maxStartingAngle = paneState.angleRange.max;
-    settings.fillStyle = () => {
+    settings.fillStyle = (random) => {
       const palette = paneState.colorPalette;
       if (palette.length === 0) {
         return paneState.solidColor;
       }
-      const index = Math.floor(Math.random() * palette.length);
+      const index = Math.floor(random() * palette.length);
       return palette[index];
     };
 

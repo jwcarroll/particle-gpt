@@ -20,7 +20,7 @@ export class DirectCanvas2DRenderer implements ParticleRenderer {
         this.canvas.height = height;
     }
 
-    render(particles: Particle[]): void {
+    render(particles: Particle[], interpolationAlpha: number = 1): void {
         this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
 
         // Group by fillStyle for batching (same as original)
@@ -38,7 +38,13 @@ export class DirectCanvas2DRenderer implements ParticleRenderer {
 
             for (const p of particles) {
                 this.ctx.beginPath();
-                this.ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
+                this.ctx.arc(
+                    p.getInterpolatedX(interpolationAlpha),
+                    p.getInterpolatedY(interpolationAlpha),
+                    p.radius,
+                    0,
+                    Math.PI * 2,
+                );
 
                 if (p.maxLifeSpan !== null) {
                     this.ctx.globalAlpha = 1 - p.timeAlive / p.maxLifeSpan;

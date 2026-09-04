@@ -1,6 +1,7 @@
 import { World, WorldSettings } from '../simulator';
 import { ForceRegistry } from '../forces';
 import { ShaderRegistry } from '../shaders';
+import { RandomSource } from '../random';
 import { MetricsCollector } from './MetricsCollector';
 import {
   BenchmarkProgress,
@@ -11,7 +12,8 @@ import {
 } from './types';
 
 const FPS_THRESHOLD = 58; // Consider "below 60fps" with small margin
-const SUSTAINED_DROP_FRAMES = 60; // Must stay below threshold for 1 second
+const SUSTAINED_DROP_MILLISECONDS = 1_000;
+const BENCHMARK_EMISSION_RATE = 3_000;
 
 export class BenchmarkRunner {
   private collector: MetricsCollector;
@@ -20,17 +22,20 @@ export class BenchmarkRunner {
   private startTime = 0;
   private warmupEndTime = 0;
   private endTime = 0;
-  private originalSettings: Partial<WorldSettings> | null = null;
+  private originalSettings: WorldSettings | null = null;
   private originalForceSnapshot: Record<string, unknown> | null = null;
   private originalShaderSnapshot: Record<string, unknown> | null = null;
+  private originalRandomSource: RandomSource | null = null;
+  private originalParticleCount = 0;
   private onProgress: ((progress: BenchmarkProgress) => void) | null = null;
   private onComplete: ((result: BenchmarkResult) => void) | null = null;
+  private onInvalid: ((reason: string) => void) | null = null;
   private forceRegistry: ForceRegistry | null;
   private shaderRegistry: ShaderRegistry | null;
 
   // Ramp test tracking
   private currentRampParticles = 0;
-  private framesBelow60 = 0;
+  private belowFpsSinceMilliseconds: number | null = null;
   private breakPointParticles: number | null = null;
 
   constructor(forceRegistry?: ForceRegistry, shaderRegistry?: ShaderRegistry) {
@@ -53,6 +58,7 @@ export class BenchmarkRunner {
     callbacks: {
       onProgress?: (progress: BenchmarkProgress) => void;
       onComplete?: (result: BenchmarkResult) => void;
+      onInvalid?: (reason: string) => void;
     } = {}
   ): void {
     if (this.isRunning()) {
@@ -63,20 +69,25 @@ export class BenchmarkRunner {
     this.scenario = scenario;
     this.onProgress = callbacks.onProgress || null;
     this.onComplete = callbacks.onComplete || null;
+    this.onInvalid = callbacks.onInvalid || null;
 
     // Save original settings
     this.originalSettings = world.getSettings();
     this.originalForceSnapshot = this.forceRegistry ? this.forceRegistry.snapshot() : null;
     this.originalShaderSnapshot = this.shaderRegistry ? this.shaderRegistry.snapshot() : null;
+    this.originalRandomSource = world.getRandomSource();
+    this.originalParticleCount = world.particleCount;
 
     // Apply scenario settings
-    // Spawn rate of 100 = ~6000 particles/second at 60fps, balances ramp speed vs measurement accuracy
     world.updateSettings({
-      minParticleCount: scenario.settings.minParticleCount,
       maxParticleCount: scenario.settings.maxParticleCount,
       enableParticleCollision: scenario.settings.enableParticleCollision,
-      spawnRate: 50,
+      emissionRate: BENCHMARK_EMISSION_RATE,
     });
+    const initialParticleCount = scenario.settings.rampMode
+      ? scenario.settings.rampStartCount ?? scenario.settings.maxParticleCount
+      : scenario.settings.maxParticleCount;
+    world.resetPopulation(initialParticleCount, { seed: scenario.settings.seed });
     this.applyForcePreset(scenario);
     this.applyShaderPreset(scenario);
 
@@ -91,8 +102,8 @@ export class BenchmarkRunner {
     this.collector.reset();
 
     // Reset ramp tracking
-    this.currentRampParticles = scenario.settings.rampStartCount || 100;
-    this.framesBelow60 = 0;
+    this.currentRampParticles = scenario.settings.rampStartCount ?? scenario.settings.maxParticleCount;
+    this.belowFpsSinceMilliseconds = null;
     this.breakPointParticles = null;
   }
 
@@ -122,23 +133,20 @@ export class BenchmarkRunner {
 
       // Check if FPS is below threshold (only after we have enough data)
       if (this.collector.getFrameCount() >= 30 && rollingFps < FPS_THRESHOLD) {
-        this.framesBelow60++;
-
-        // If sustained drop detected, record break point and stop
-        if (this.framesBelow60 >= SUSTAINED_DROP_FRAMES && !this.breakPointParticles) {
+        this.belowFpsSinceMilliseconds ??= now;
+        if (
+          now - this.belowFpsSinceMilliseconds >= SUSTAINED_DROP_MILLISECONDS
+          && !this.breakPointParticles
+        ) {
           this.breakPointParticles = this.currentRampParticles;
           this.complete(world, this.breakPointParticles);
           return;
         }
       } else {
-        this.framesBelow60 = 0; // Reset counter if FPS recovers
+        this.belowFpsSinceMilliseconds = null;
       }
 
-      // Set target to max - let world.refillParticles() do the gradual increase
-      world.updateSettings({
-        minParticleCount: endCount,
-        maxParticleCount: endCount,
-      });
+      world.setTargetPopulation(endCount);
 
       // If actual particles reached max and still above 60fps, we're done
       if (actualParticles >= endCount && this.collector.getFrameCount() > 60) {
@@ -173,19 +181,7 @@ export class BenchmarkRunner {
     this.collector.stop();
     this.state = 'complete';
 
-    // Restore original settings
-    if (this.originalSettings) {
-      world.updateSettings(this.originalSettings);
-      this.originalSettings = null;
-    }
-    if (this.forceRegistry && this.originalForceSnapshot) {
-      this.forceRegistry.restore(this.originalForceSnapshot);
-      this.originalForceSnapshot = null;
-    }
-    if (this.shaderRegistry && this.originalShaderSnapshot) {
-      this.shaderRegistry.restore(this.originalShaderSnapshot);
-      this.originalShaderSnapshot = null;
-    }
+    this.restoreBenchmarkState(world);
 
     const result = this.generateResult(breakPoint);
 
@@ -205,10 +201,22 @@ export class BenchmarkRunner {
     this.collector.stop();
     this.state = 'idle';
 
-    if (this.originalSettings) {
-      world.updateSettings(this.originalSettings);
-      this.originalSettings = null;
+    this.restoreBenchmarkState(world);
+  }
+
+  invalidate(reason: string, world: World): void {
+    if (!this.isRunning()) {
+      return;
     }
+
+    this.collector.stop();
+    this.state = 'invalid';
+    this.restoreBenchmarkState(world);
+    this.onInvalid?.(reason);
+  }
+
+  private restoreBenchmarkState(world: World): void {
+    this.restoreWorldState(world);
     if (this.forceRegistry && this.originalForceSnapshot) {
       this.forceRegistry.restore(this.originalForceSnapshot);
       this.originalForceSnapshot = null;
@@ -235,6 +243,23 @@ export class BenchmarkRunner {
         plugin.setState({ enabled: plugin.id === 'gravity' });
       }
     }
+  }
+
+  private restoreWorldState(world: World): void {
+    if (!this.originalSettings) {
+      return;
+    }
+
+    world.updateSettings(this.originalSettings);
+    this.originalSettings = null;
+
+    if (this.originalRandomSource) {
+      world.setRandomSource(this.originalRandomSource);
+      this.originalRandomSource = null;
+    }
+
+    world.resetPopulation(this.originalParticleCount);
+    this.originalParticleCount = 0;
   }
 
   private applyShaderPreset(scenario: BenchmarkScenario): void {

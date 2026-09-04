@@ -209,6 +209,10 @@ export class BenchmarkUI {
           : '-';
         this.pane?.refresh();
       },
+      onInvalid: (reason: string) => {
+        this.state.status = `Invalid: ${reason}`;
+        this.pane?.refresh();
+      },
     });
   }
 

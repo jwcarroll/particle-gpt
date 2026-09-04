@@ -412,7 +412,7 @@ export class WebGLRenderer implements ParticleRenderer {
         this.gl.uniform2f(this.resolutionLoc, width, height);
     }
 
-    render(particles: Particle[]): void {
+    render(particles: Particle[], interpolationAlpha: number = 1): void {
         const gl = this.gl;
         const ext = this.ext;
         const count = Math.min(particles.length, MAX_PARTICLES);
@@ -427,8 +427,8 @@ export class WebGLRenderer implements ParticleRenderer {
                 : Math.min(Math.max(p.timeAlive / p.maxLifeSpan, 0), 1);
             const speed = Math.sqrt(p.velocity.x * p.velocity.x + p.velocity.y * p.velocity.y);
 
-            this.instanceData[base + 0] = p.x;
-            this.instanceData[base + 1] = p.y;
+            this.instanceData[base + 0] = p.getInterpolatedX(interpolationAlpha);
+            this.instanceData[base + 1] = p.getInterpolatedY(interpolationAlpha);
             this.instanceData[base + 2] = p.radius;
             this.instanceData[base + 3] = r;
             this.instanceData[base + 4] = g;
