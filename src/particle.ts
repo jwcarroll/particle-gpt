@@ -1,5 +1,4 @@
-import { Vector } from "./vector";
-
+import { Vector } from './vector';
 
 export class Particle {
   x: number;
@@ -17,7 +16,14 @@ export class Particle {
     return this.maxLifeSpan !== null && this._timeAlive > this.maxLifeSpan;
   }
 
-  constructor(x: number, y: number, velocity: Vector, radius: number, fillStyle: string = 'blue', maxLifeSpan?: number) {
+  constructor(
+    x: number,
+    y: number,
+    velocity: Vector,
+    radius: number,
+    fillStyle: string = 'blue',
+    maxLifeSpan?: number,
+  ) {
     this.x = x;
     this.y = y;
     this.previousX = x;
@@ -49,7 +55,14 @@ export class Particle {
     return this.previousY + (this.y - this.previousY) * alpha;
   }
 
-  reset(x: number, y: number, velocity: Vector, radius: number, fillStyle: string, maxLifeSpan: number): void {
+  reset(
+    x: number,
+    y: number,
+    velocity: Vector,
+    radius: number,
+    fillStyle: string,
+    maxLifeSpan: number,
+  ): void {
     this.x = x;
     this.y = y;
     this.previousX = x;

@@ -1,5 +1,4 @@
-import { Vector } from "./vector";
-
+import { Vector } from './vector';
 
 export class Force extends Vector {
   private _name: string;

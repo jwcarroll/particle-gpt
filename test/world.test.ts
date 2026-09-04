@@ -45,7 +45,11 @@ test('resetPopulation creates the exact requested population', () => {
   assert.equal(world.particlePool.length, 2);
 
   const allParticles = [...world.activeParticles, ...world.particlePool];
-  assert.equal(new Set(allParticles).size, 5, 'pool and active population must not contain duplicate references');
+  assert.equal(
+    new Set(allParticles).size,
+    5,
+    'pool and active population must not contain duplicate references',
+  );
 });
 
 test('resetPopulation reproduces initial particle state from a seed', () => {
@@ -63,7 +67,13 @@ test('resetPopulation rejects invalid counts without changing active particles',
   world.resetPopulation(4, { seed: 7 });
   const originalParticles = [...world.activeParticles];
 
-  for (const invalidCount of [-1, 1.5, Number.NaN, Number.POSITIVE_INFINITY, MAX_PARTICLE_COUNT + 1]) {
+  for (const invalidCount of [
+    -1,
+    1.5,
+    Number.NaN,
+    Number.POSITIVE_INFINITY,
+    MAX_PARTICLE_COUNT + 1,
+  ]) {
     assert.throws(() => world.resetPopulation(invalidCount), RangeError);
     assert.deepEqual(world.activeParticles, originalParticles);
   }

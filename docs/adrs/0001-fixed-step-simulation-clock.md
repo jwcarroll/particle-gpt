@@ -86,10 +86,7 @@ let accumulator = 0;
 let simulationTime = 0;
 
 function animate(now: number) {
-  const elapsed = Math.min(
-    Math.max((now - previousWallTime) / 1000, 0),
-    maxFrameDelta,
-  );
+  const elapsed = Math.min(Math.max((now - previousWallTime) / 1000, 0), maxFrameDelta);
   previousWallTime = now;
   accumulator += elapsed;
 

@@ -2,7 +2,7 @@
 
 ## Setup
 
-Prerequisite: a current supported Node.js release with npm.
+Prerequisite: Node.js 24 or later with npm. `.nvmrc` selects Node 24 for compatible version managers.
 
 ```bash
 npm install
@@ -13,15 +13,19 @@ The development server uses `http://localhost:3000` and is configured to open a 
 
 ## Existing commands
 
-| Command | Purpose |
-| --- | --- |
-| `npm run dev` | Start the Vite development server |
-| `npm test` | Run the TypeScript unit and characterization tests once |
-| `npm run test:watch` | Rerun the TypeScript tests as files change |
-| `npm run build` | Run strict TypeScript checking and create a production bundle |
-| `npm run preview` | Serve the production bundle locally |
+| Command                | Purpose                                                       |
+| ---------------------- | ------------------------------------------------------------- |
+| `npm run dev`          | Start the Vite development server                             |
+| `npm test`             | Run the TypeScript unit and characterization tests once       |
+| `npm run test:watch`   | Rerun the TypeScript tests as files change                    |
+| `npm run lint`         | Lint TypeScript and configuration with ESLint; warnings fail  |
+| `npm run format`       | Apply the Prettier formatting baseline                        |
+| `npm run format:check` | Verify Prettier formatting without changing files             |
+| `npm run check`        | Run the local CI gate: lint, format check, tests, and build   |
+| `npm run build`        | Run strict TypeScript checking and create a production bundle |
+| `npm run preview`      | Serve the production bundle locally                           |
 
-There are currently no repository scripts for linting, formatting, browser tests, or CI. When those are introduced, add the commands here and in `AGENTS.md`.
+GitHub Actions runs `npm ci` followed by `npm run check` on every push and pull request with Node 24. Browser tests are not yet automated.
 
 ## Change workflow
 
@@ -29,7 +33,7 @@ There are currently no repository scripts for linting, formatting, browser tests
 2. Inspect the working tree and preserve unrelated changes.
 3. Identify whether the change affects simulation semantics, rendering parity, persisted data, or benchmark comparability.
 4. Make the smallest coherent change. Add tests around a domain seam before expanding the implementation.
-5. Run `npm run build` and the relevant checks below.
+5. Run `npm run check` and the relevant checks below.
 6. Update documentation and ADR status when the implemented behavior changes a documented contract.
 7. Report commands run, results, untested surfaces, and remaining risks.
 
@@ -37,17 +41,17 @@ Commits and releases must follow [versioning.md](versioning.md). Use Conventiona
 
 ## Validation matrix
 
-| Change area | Required checks |
-| --- | --- |
-| Vector, particle, clock, population | Unit tests with deterministic inputs; boundary values; zero and large deltas |
-| Forces | Unit tests for disabled state, units, direction, reset, snapshot/restore, and deterministic seeds |
-| Collisions | Head-on, separating, exact overlap, boundary contact, dense cells, and high-speed tunneling characterization |
-| Canvas renderer | Visual smoke test, alpha restoration, resize, high-DPI output, and zero-particle frame |
-| WebGL renderer/effects | Capability fallback, compile/link failure, context loss, resize, high-DPI output, 0/1/max particles, and visual parity |
-| Plugin contracts | Runtime state validation, duplicate IDs, schema versioning, generated controls, persistence round trip |
-| Benchmarks | Exact starting population, warmup isolation, cancellation, restoration, manifest completeness, and mismatch rejection |
-| UI/layout | Desktop and 390px-wide viewport, keyboard access, inspector collapse, readable contrast, and reduced motion |
-| Storage/import | Valid data, malformed JSON, wrong schema/version, duplicates, quota failure, and migration behavior |
+| Change area                         | Required checks                                                                                                        |
+| ----------------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
+| Vector, particle, clock, population | Unit tests with deterministic inputs; boundary values; zero and large deltas                                           |
+| Forces                              | Unit tests for disabled state, units, direction, reset, snapshot/restore, and deterministic seeds                      |
+| Collisions                          | Head-on, separating, exact overlap, boundary contact, dense cells, and high-speed tunneling characterization           |
+| Canvas renderer                     | Visual smoke test, alpha restoration, resize, high-DPI output, and zero-particle frame                                 |
+| WebGL renderer/effects              | Capability fallback, compile/link failure, context loss, resize, high-DPI output, 0/1/max particles, and visual parity |
+| Plugin contracts                    | Runtime state validation, duplicate IDs, schema versioning, generated controls, persistence round trip                 |
+| Benchmarks                          | Exact starting population, warmup isolation, cancellation, restoration, manifest completeness, and mismatch rejection  |
+| UI/layout                           | Desktop and 390px-wide viewport, keyboard access, inspector collapse, readable contrast, and reduced motion            |
+| Storage/import                      | Valid data, malformed JSON, wrong schema/version, duplicates, quota failure, and migration behavior                    |
 
 ## Performance discipline
 

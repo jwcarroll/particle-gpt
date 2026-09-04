@@ -57,10 +57,13 @@ export class BenchmarkUI {
 
     // Scenario dropdown
     const scenarios = getScenarioList();
-    const scenarioOptions = scenarios.reduce((acc, s) => {
-      acc[s.name] = s.id;
-      return acc;
-    }, {} as Record<string, string>);
+    const scenarioOptions = scenarios.reduce(
+      (acc, s) => {
+        acc[s.name] = s.id;
+        return acc;
+      },
+      {} as Record<string, string>,
+    );
 
     this.folder.addBinding(this.state, 'scenario', {
       label: 'Scenario',
@@ -231,7 +234,7 @@ export class BenchmarkUI {
 
     // Refresh baseline dropdown
     const saveFolder = this.folder?.children.find(
-      c => 'title' in c && (c as FolderApi).title === 'Save & Compare'
+      (c) => 'title' in c && (c as FolderApi).title === 'Save & Compare',
     ) as FolderApi | undefined;
 
     if (saveFolder) {
@@ -274,7 +277,7 @@ export class BenchmarkUI {
 
       // Refresh baseline dropdown
       const saveFolder = this.folder?.children.find(
-        c => 'title' in c && (c as FolderApi).title === 'Save & Compare'
+        (c) => 'title' in c && (c as FolderApi).title === 'Save & Compare',
       ) as FolderApi | undefined;
 
       if (saveFolder) {

@@ -23,6 +23,7 @@ This is a 2D physics particle simulation engine built with TypeScript, Vite, and
 **Particle** (`src/particle.ts`): Individual particle with position, velocity, radius, lifespan, and collision detection. Supports object pooling via `reset()`.
 
 **World Simulation** (`src/simulator.ts`): Main physics engine managing:
+
 - Particle lifecycle (spawning, pooling, removal)
 - Force application
 - Boundary and particle-to-particle collision with elasticity

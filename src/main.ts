@@ -1,5 +1,5 @@
-import './style.css'
-import { World } from './simulator'
+import './style.css';
+import { World } from './simulator';
 import { BladeApi, Pane } from 'tweakpane';
 import * as EssentialsPlugin from '@tweakpane/plugin-essentials';
 import { Canvas2DRenderer } from './renderers/Canvas2DRenderer';
@@ -33,8 +33,7 @@ if (!canvas) {
       <p>Make sure you have a canvas element with the id "canvas"</p>
     </div>
   `;
-}
-else {
+} else {
   const PIXELS_PER_METER = 100;
   const shaderRegistry = new ShaderRegistry();
   const colorShiftEffect = new ColorShiftEffectPlugin();
@@ -59,9 +58,9 @@ else {
 
   // Renderer setup with hot-swapping support
   const renderers = {
-    'DoubleBuffered': new Canvas2DRenderer(canvas),
-    'Direct': new DirectCanvas2DRenderer(canvas),
-    'WebGL': webglRenderer,
+    DoubleBuffered: new Canvas2DRenderer(canvas),
+    Direct: new DirectCanvas2DRenderer(canvas),
+    WebGL: webglRenderer,
   };
   type RendererType = keyof typeof renderers;
 
@@ -112,17 +111,18 @@ else {
     benchmark,
     rendererState,
     (type: RendererType) => {
-    renderer = renderers[type];
-    renderer.initialize(window.innerWidth, window.innerHeight);
-    updateCanvasVisibility(type);
-  });
+      renderer = renderers[type];
+      renderer.initialize(window.innerWidth, window.innerHeight);
+      updateCanvasVisibility(type);
+    },
+  );
 
   // Initialize all renderers
-  Object.values(renderers).forEach(r => r.initialize(window.innerWidth, window.innerHeight));
+  Object.values(renderers).forEach((r) => r.initialize(window.innerWidth, window.innerHeight));
 
   // Handle window resize
   window.addEventListener('resize', () => {
-    Object.values(renderers).forEach(r => r.resize(window.innerWidth, window.innerHeight));
+    Object.values(renderers).forEach((r) => r.resize(window.innerWidth, window.innerHeight));
     world.updateSettings({
       height: window.innerHeight,
       width: window.innerWidth,
@@ -192,7 +192,7 @@ interface FpsBladeApi extends BladeApi {
 
 type PaneReferences = {
   fpsgraph: FpsBladeApi;
-}
+};
 
 type IntervalRange = {
   min: number;
@@ -223,7 +223,9 @@ const COLOR_PRESETS: Record<ColorPreset, string[]> = {
 };
 
 function randomHexColor(): string {
-  return `#${Math.floor(Math.random() * 0xffffff).toString(16).padStart(6, '0')}`;
+  return `#${Math.floor(Math.random() * 0xffffff)
+    .toString(16)
+    .padStart(6, '0')}`;
 }
 
 function createRandomPalette(count: number): string[] {
@@ -241,7 +243,7 @@ function setupTweakPane(
   webglRenderer: WebGLRenderer,
   benchmark: BenchmarkModule,
   rendererState: { current: string },
-  onRendererChange: (type: 'DoubleBuffered' | 'Direct' | 'WebGL') => void
+  onRendererChange: (type: 'DoubleBuffered' | 'Direct' | 'WebGL') => void,
 ): PaneReferences {
   const pane = new Pane();
   pane.registerPlugin(EssentialsPlugin);
@@ -272,9 +274,10 @@ function setupTweakPane(
     colorPreset: 'water',
     rainbowCount: initialRainbowCount,
     solidColor: initialSolidColor,
-    colorPalette: typeof settings.fillStyle === 'string'
-      ? [initialSolidColor]
-      : createRandomPalette(initialRainbowCount),
+    colorPalette:
+      typeof settings.fillStyle === 'string'
+        ? [initialSolidColor]
+        : createRandomPalette(initialRainbowCount),
   };
 
   const tabs = pane.addTab({
@@ -292,7 +295,10 @@ function setupTweakPane(
   const benchmarkTab = tabs.pages[3];
 
   const populationFolder = simulationTab.addFolder({ title: 'Population', expanded: true });
-  const lifespanAndSizeFolder = simulationTab.addFolder({ title: 'Lifespan & Size', expanded: false });
+  const lifespanAndSizeFolder = simulationTab.addFolder({
+    title: 'Lifespan & Size',
+    expanded: false,
+  });
   const motionFolder = simulationTab.addFolder({ title: 'Motion', expanded: false });
   const collisionFolder = simulationTab.addFolder({ title: 'Collision', expanded: false });
 
@@ -348,19 +354,25 @@ function setupTweakPane(
       gravityPlugin.setState(gravityState);
     };
 
-    gravityFolder.addBinding(gravityState, 'enabled', { label: 'Enabled' }).on('change', applyGravityState);
-    gravityFolder.addBinding(gravityState, 'strengthMps2', {
-      min: 0,
-      max: 30,
-      step: 0.01,
-      label: 'Strength (m/s²)',
-    }).on('change', applyGravityState);
-    gravityFolder.addBinding(gravityState, 'directionDeg', {
-      min: 0,
-      max: 360,
-      step: 1,
-      label: 'Direction',
-    }).on('change', applyGravityState);
+    gravityFolder
+      .addBinding(gravityState, 'enabled', { label: 'Enabled' })
+      .on('change', applyGravityState);
+    gravityFolder
+      .addBinding(gravityState, 'strengthMps2', {
+        min: 0,
+        max: 30,
+        step: 0.01,
+        label: 'Strength (m/s²)',
+      })
+      .on('change', applyGravityState);
+    gravityFolder
+      .addBinding(gravityState, 'directionDeg', {
+        min: 0,
+        max: 360,
+        step: 1,
+        label: 'Direction',
+      })
+      .on('change', applyGravityState);
     gravityFolder.addButton({ title: 'Reset' }).on('click', () => {
       gravityPlugin.reset();
       Object.assign(gravityState, gravityPlugin.getState());
@@ -389,60 +401,78 @@ function setupTweakPane(
     };
 
     windFolder.addBinding(windState, 'enabled', { label: 'Enabled' }).on('change', applyWindState);
-    windFolder.addBinding(windState, 'baseMps2', {
-      min: -30,
-      max: 30,
-      step: 0.01,
-      label: 'Base (m/s²)',
-    }).on('change', applyWindState);
-    windFolder.addBinding(windState, 'variabilityMps2', {
-      min: 0,
-      max: 30,
-      step: 0.01,
-      label: 'Variability',
-    }).on('change', applyWindState);
-    windFolder.addBinding(windState, 'turbulenceHz', {
-      min: 0.01,
-      max: 2,
-      step: 0.01,
-      label: 'Turbulence (Hz)',
-    }).on('change', applyWindState);
-    windFolder.addBinding(windState, 'directionDeg', {
-      min: 0,
-      max: 360,
-      step: 1,
-      label: 'Direction',
-    }).on('change', applyWindState);
-    windFolder.addBinding(windState, 'directionJitterDeg', {
-      min: 0,
-      max: 90,
-      step: 1,
-      label: 'Dir Jitter',
-    }).on('change', applyWindState);
-    windFolder.addBinding(windState, 'gustChancePerMin', {
-      min: 0,
-      max: 60,
-      step: 1,
-      label: 'Gusts / Min',
-    }).on('change', applyWindState);
-    windFolder.addBinding(windState, 'gustStrengthMps2', {
-      min: 0,
-      max: 30,
-      step: 0.1,
-      label: 'Gust Strength',
-    }).on('change', applyWindState);
-    windFolder.addBinding(windState, 'gustDurationSec', {
-      min: 0.1,
-      max: 10,
-      step: 0.1,
-      label: 'Gust Duration',
-    }).on('change', applyWindState);
-    windFolder.addBinding(windState, 'seed', {
-      min: 1,
-      max: 2147483647,
-      step: 1,
-      label: 'Seed',
-    }).on('change', applyWindState);
+    windFolder
+      .addBinding(windState, 'baseMps2', {
+        min: -30,
+        max: 30,
+        step: 0.01,
+        label: 'Base (m/s²)',
+      })
+      .on('change', applyWindState);
+    windFolder
+      .addBinding(windState, 'variabilityMps2', {
+        min: 0,
+        max: 30,
+        step: 0.01,
+        label: 'Variability',
+      })
+      .on('change', applyWindState);
+    windFolder
+      .addBinding(windState, 'turbulenceHz', {
+        min: 0.01,
+        max: 2,
+        step: 0.01,
+        label: 'Turbulence (Hz)',
+      })
+      .on('change', applyWindState);
+    windFolder
+      .addBinding(windState, 'directionDeg', {
+        min: 0,
+        max: 360,
+        step: 1,
+        label: 'Direction',
+      })
+      .on('change', applyWindState);
+    windFolder
+      .addBinding(windState, 'directionJitterDeg', {
+        min: 0,
+        max: 90,
+        step: 1,
+        label: 'Dir Jitter',
+      })
+      .on('change', applyWindState);
+    windFolder
+      .addBinding(windState, 'gustChancePerMin', {
+        min: 0,
+        max: 60,
+        step: 1,
+        label: 'Gusts / Min',
+      })
+      .on('change', applyWindState);
+    windFolder
+      .addBinding(windState, 'gustStrengthMps2', {
+        min: 0,
+        max: 30,
+        step: 0.1,
+        label: 'Gust Strength',
+      })
+      .on('change', applyWindState);
+    windFolder
+      .addBinding(windState, 'gustDurationSec', {
+        min: 0.1,
+        max: 10,
+        step: 0.1,
+        label: 'Gust Duration',
+      })
+      .on('change', applyWindState);
+    windFolder
+      .addBinding(windState, 'seed', {
+        min: 1,
+        max: 2147483647,
+        step: 1,
+        label: 'Seed',
+      })
+      .on('change', applyWindState);
     windFolder.addButton({ title: 'Randomize Seed' }).on('click', () => {
       if (benchmark.isRunning()) return;
       windState.seed = Math.floor(Math.random() * 2147483646) + 1;
@@ -466,33 +496,43 @@ function setupTweakPane(
       radialPlugin.setState(radialState);
     };
 
-    radialFolder.addBinding(radialState, 'enabled', { label: 'Enabled' }).on('change', applyRadialState);
-    radialFolder.addBinding(radialState, 'strengthMps2', {
-      min: -50,
-      max: 50,
-      step: 0.1,
-      label: 'Strength (m/s²)',
-    }).on('change', applyRadialState);
-    radialFolder.addBinding(radialState, 'centerX', {
-      min: 0,
-      max: settings.width,
-      step: 1,
-      label: 'Center X',
-    }).on('change', applyRadialState);
-    radialFolder.addBinding(radialState, 'centerY', {
-      min: 0,
-      max: settings.height,
-      step: 1,
-      label: 'Center Y',
-    }).on('change', applyRadialState);
-    radialFolder.addBinding(radialState, 'falloff', {
-      label: 'Falloff',
-      options: {
-        None: 'none',
-        'Inverse Distance': 'inverseDistance',
-        'Inverse Square': 'inverseSquare',
-      },
-    }).on('change', applyRadialState);
+    radialFolder
+      .addBinding(radialState, 'enabled', { label: 'Enabled' })
+      .on('change', applyRadialState);
+    radialFolder
+      .addBinding(radialState, 'strengthMps2', {
+        min: -50,
+        max: 50,
+        step: 0.1,
+        label: 'Strength (m/s²)',
+      })
+      .on('change', applyRadialState);
+    radialFolder
+      .addBinding(radialState, 'centerX', {
+        min: 0,
+        max: settings.width,
+        step: 1,
+        label: 'Center X',
+      })
+      .on('change', applyRadialState);
+    radialFolder
+      .addBinding(radialState, 'centerY', {
+        min: 0,
+        max: settings.height,
+        step: 1,
+        label: 'Center Y',
+      })
+      .on('change', applyRadialState);
+    radialFolder
+      .addBinding(radialState, 'falloff', {
+        label: 'Falloff',
+        options: {
+          None: 'none',
+          'Inverse Distance': 'inverseDistance',
+          'Inverse Square': 'inverseSquare',
+        },
+      })
+      .on('change', applyRadialState);
     radialFolder.addButton({ title: 'Reset' }).on('click', () => {
       radialPlugin.reset();
       Object.assign(radialState, radialPlugin.getState());
@@ -501,17 +541,19 @@ function setupTweakPane(
   }
 
   const rendererFolder = renderingTab.addFolder({ title: 'Renderer', expanded: true });
-  rendererFolder.addBinding(rendererState, 'current', {
-    label: 'Renderer',
-    options: {
-      'Canvas2D': 'DoubleBuffered',
-      'Canvas2D (Direct)': 'Direct',
-      'WebGL': 'WebGL',
-    },
-  }).on('change', (ev) => {
-    onRendererChange(ev.value as 'DoubleBuffered' | 'Direct' | 'WebGL');
-    updateShaderUiState();
-  });
+  rendererFolder
+    .addBinding(rendererState, 'current', {
+      label: 'Renderer',
+      options: {
+        Canvas2D: 'DoubleBuffered',
+        'Canvas2D (Direct)': 'Direct',
+        WebGL: 'WebGL',
+      },
+    })
+    .on('change', (ev) => {
+      onRendererChange(ev.value as 'DoubleBuffered' | 'Direct' | 'WebGL');
+      updateShaderUiState();
+    });
 
   const shadersFolder = renderingTab.addFolder({ title: 'Shaders', expanded: true });
   const shaderUiState = {
@@ -524,9 +566,10 @@ function setupTweakPane(
   const updateShaderUiState = () => {
     shaderUiState.webglActive = rendererState.current === 'WebGL' ? 'Yes' : 'No';
     shaderUiState.compileStatus = webglRenderer.getCompileStatus();
-    const active = shaderRegistry.list()
-      .filter(plugin => plugin.getState().enabled)
-      .map(plugin => plugin.label);
+    const active = shaderRegistry
+      .list()
+      .filter((plugin) => plugin.getState().enabled)
+      .map((plugin) => plugin.label);
     shaderUiState.activeEffects = active.length > 0 ? active.join(', ') : 'None';
 
     const disabled = rendererState.current !== 'WebGL';
@@ -549,26 +592,38 @@ function setupTweakPane(
       ageAlphaEffect.setState(state);
       updateShaderUiState();
     };
-    shaderBlades.push(folder.addBinding(state, 'enabled', { label: 'Enabled' }).on('change', apply));
-    shaderBlades.push(folder.addBinding(state, 'curve', {
-      label: 'Curve',
-      options: {
-        Linear: 'linear',
-        Smoothstep: 'smoothstep',
-        Exponential: 'exponential',
-      },
-    }).on('change', apply));
-    shaderBlades.push(folder.addBinding(state, 'exponent', {
-      min: 0.2,
-      max: 5,
-      step: 0.1,
-      label: 'Exponent',
-    }).on('change', apply));
-    shaderBlades.push(folder.addButton({ title: 'Reset' }).on('click', () => {
-      ageAlphaEffect.reset();
-      Object.assign(state, ageAlphaEffect.getState());
-      updateShaderUiState();
-    }));
+    shaderBlades.push(
+      folder.addBinding(state, 'enabled', { label: 'Enabled' }).on('change', apply),
+    );
+    shaderBlades.push(
+      folder
+        .addBinding(state, 'curve', {
+          label: 'Curve',
+          options: {
+            Linear: 'linear',
+            Smoothstep: 'smoothstep',
+            Exponential: 'exponential',
+          },
+        })
+        .on('change', apply),
+    );
+    shaderBlades.push(
+      folder
+        .addBinding(state, 'exponent', {
+          min: 0.2,
+          max: 5,
+          step: 0.1,
+          label: 'Exponent',
+        })
+        .on('change', apply),
+    );
+    shaderBlades.push(
+      folder.addButton({ title: 'Reset' }).on('click', () => {
+        ageAlphaEffect.reset();
+        Object.assign(state, ageAlphaEffect.getState());
+        updateShaderUiState();
+      }),
+    );
   }
 
   const velocityTintEffect = shaderRegistry.get('velocityTint');
@@ -580,38 +635,62 @@ function setupTweakPane(
       velocityTintEffect.setState(state);
       updateShaderUiState();
     };
-    shaderBlades.push(folder.addBinding(state, 'enabled', { label: 'Enabled' }).on('change', apply));
-    shaderBlades.push(folder.addBinding(state, 'minSpeed', {
-      min: 0,
-      max: 2000,
-      step: 1,
-      label: 'Min Speed',
-    }).on('change', apply));
-    shaderBlades.push(folder.addBinding(state, 'maxSpeed', {
-      min: 1,
-      max: 3000,
-      step: 1,
-      label: 'Max Speed',
-    }).on('change', apply));
-    shaderBlades.push(folder.addBinding(state, 'lowColor', {
-      label: 'Low Color',
-      view: 'color',
-    }).on('change', apply));
-    shaderBlades.push(folder.addBinding(state, 'highColor', {
-      label: 'High Color',
-      view: 'color',
-    }).on('change', apply));
-    shaderBlades.push(folder.addBinding(state, 'strength', {
-      min: 0,
-      max: 1,
-      step: 0.01,
-      label: 'Strength',
-    }).on('change', apply));
-    shaderBlades.push(folder.addButton({ title: 'Reset' }).on('click', () => {
-      velocityTintEffect.reset();
-      Object.assign(state, velocityTintEffect.getState());
-      updateShaderUiState();
-    }));
+    shaderBlades.push(
+      folder.addBinding(state, 'enabled', { label: 'Enabled' }).on('change', apply),
+    );
+    shaderBlades.push(
+      folder
+        .addBinding(state, 'minSpeed', {
+          min: 0,
+          max: 2000,
+          step: 1,
+          label: 'Min Speed',
+        })
+        .on('change', apply),
+    );
+    shaderBlades.push(
+      folder
+        .addBinding(state, 'maxSpeed', {
+          min: 1,
+          max: 3000,
+          step: 1,
+          label: 'Max Speed',
+        })
+        .on('change', apply),
+    );
+    shaderBlades.push(
+      folder
+        .addBinding(state, 'lowColor', {
+          label: 'Low Color',
+          view: 'color',
+        })
+        .on('change', apply),
+    );
+    shaderBlades.push(
+      folder
+        .addBinding(state, 'highColor', {
+          label: 'High Color',
+          view: 'color',
+        })
+        .on('change', apply),
+    );
+    shaderBlades.push(
+      folder
+        .addBinding(state, 'strength', {
+          min: 0,
+          max: 1,
+          step: 0.01,
+          label: 'Strength',
+        })
+        .on('change', apply),
+    );
+    shaderBlades.push(
+      folder.addButton({ title: 'Reset' }).on('click', () => {
+        velocityTintEffect.reset();
+        Object.assign(state, velocityTintEffect.getState());
+        updateShaderUiState();
+      }),
+    );
   }
 
   const colorShiftEffect = shaderRegistry.get('colorShift');
@@ -623,24 +702,36 @@ function setupTweakPane(
       colorShiftEffect.setState(state);
       updateShaderUiState();
     };
-    shaderBlades.push(folder.addBinding(state, 'enabled', { label: 'Enabled' }).on('change', apply));
-    shaderBlades.push(folder.addBinding(state, 'speed', {
-      min: 0,
-      max: 5,
-      step: 0.01,
-      label: 'Speed',
-    }).on('change', apply));
-    shaderBlades.push(folder.addBinding(state, 'amount', {
-      min: 0,
-      max: 1,
-      step: 0.01,
-      label: 'Amount',
-    }).on('change', apply));
-    shaderBlades.push(folder.addButton({ title: 'Reset' }).on('click', () => {
-      colorShiftEffect.reset();
-      Object.assign(state, colorShiftEffect.getState());
-      updateShaderUiState();
-    }));
+    shaderBlades.push(
+      folder.addBinding(state, 'enabled', { label: 'Enabled' }).on('change', apply),
+    );
+    shaderBlades.push(
+      folder
+        .addBinding(state, 'speed', {
+          min: 0,
+          max: 5,
+          step: 0.01,
+          label: 'Speed',
+        })
+        .on('change', apply),
+    );
+    shaderBlades.push(
+      folder
+        .addBinding(state, 'amount', {
+          min: 0,
+          max: 1,
+          step: 0.01,
+          label: 'Amount',
+        })
+        .on('change', apply),
+    );
+    shaderBlades.push(
+      folder.addButton({ title: 'Reset' }).on('click', () => {
+        colorShiftEffect.reset();
+        Object.assign(state, colorShiftEffect.getState());
+        updateShaderUiState();
+      }),
+    );
   }
 
   const outlineEffect = shaderRegistry.get('outline');
@@ -652,28 +743,44 @@ function setupTweakPane(
       outlineEffect.setState(state);
       updateShaderUiState();
     };
-    shaderBlades.push(folder.addBinding(state, 'enabled', { label: 'Enabled' }).on('change', apply));
-    shaderBlades.push(folder.addBinding(state, 'thickness', {
-      min: 0.01,
-      max: 0.95,
-      step: 0.01,
-      label: 'Thickness',
-    }).on('change', apply));
-    shaderBlades.push(folder.addBinding(state, 'strength', {
-      min: 0,
-      max: 1,
-      step: 0.01,
-      label: 'Strength',
-    }).on('change', apply));
-    shaderBlades.push(folder.addBinding(state, 'color', {
-      label: 'Color',
-      view: 'color',
-    }).on('change', apply));
-    shaderBlades.push(folder.addButton({ title: 'Reset' }).on('click', () => {
-      outlineEffect.reset();
-      Object.assign(state, outlineEffect.getState());
-      updateShaderUiState();
-    }));
+    shaderBlades.push(
+      folder.addBinding(state, 'enabled', { label: 'Enabled' }).on('change', apply),
+    );
+    shaderBlades.push(
+      folder
+        .addBinding(state, 'thickness', {
+          min: 0.01,
+          max: 0.95,
+          step: 0.01,
+          label: 'Thickness',
+        })
+        .on('change', apply),
+    );
+    shaderBlades.push(
+      folder
+        .addBinding(state, 'strength', {
+          min: 0,
+          max: 1,
+          step: 0.01,
+          label: 'Strength',
+        })
+        .on('change', apply),
+    );
+    shaderBlades.push(
+      folder
+        .addBinding(state, 'color', {
+          label: 'Color',
+          view: 'color',
+        })
+        .on('change', apply),
+    );
+    shaderBlades.push(
+      folder.addButton({ title: 'Reset' }).on('click', () => {
+        outlineEffect.reset();
+        Object.assign(state, outlineEffect.getState());
+        updateShaderUiState();
+      }),
+    );
   }
 
   const glowEffect = shaderRegistry.get('glow');
@@ -685,24 +792,36 @@ function setupTweakPane(
       glowEffect.setState(state);
       updateShaderUiState();
     };
-    shaderBlades.push(folder.addBinding(state, 'enabled', { label: 'Enabled' }).on('change', apply));
-    shaderBlades.push(folder.addBinding(state, 'radius', {
-      min: 0.01,
-      max: 0.95,
-      step: 0.01,
-      label: 'Radius',
-    }).on('change', apply));
-    shaderBlades.push(folder.addBinding(state, 'intensity', {
-      min: 0,
-      max: 2,
-      step: 0.01,
-      label: 'Intensity',
-    }).on('change', apply));
-    shaderBlades.push(folder.addButton({ title: 'Reset' }).on('click', () => {
-      glowEffect.reset();
-      Object.assign(state, glowEffect.getState());
-      updateShaderUiState();
-    }));
+    shaderBlades.push(
+      folder.addBinding(state, 'enabled', { label: 'Enabled' }).on('change', apply),
+    );
+    shaderBlades.push(
+      folder
+        .addBinding(state, 'radius', {
+          min: 0.01,
+          max: 0.95,
+          step: 0.01,
+          label: 'Radius',
+        })
+        .on('change', apply),
+    );
+    shaderBlades.push(
+      folder
+        .addBinding(state, 'intensity', {
+          min: 0,
+          max: 2,
+          step: 0.01,
+          label: 'Intensity',
+        })
+        .on('change', apply),
+    );
+    shaderBlades.push(
+      folder.addButton({ title: 'Reset' }).on('click', () => {
+        glowEffect.reset();
+        Object.assign(state, glowEffect.getState());
+        updateShaderUiState();
+      }),
+    );
   }
 
   const heatShimmerEffect = shaderRegistry.get('heatShimmer');
@@ -714,36 +833,56 @@ function setupTweakPane(
       heatShimmerEffect.setState(state);
       updateShaderUiState();
     };
-    shaderBlades.push(folder.addBinding(state, 'enabled', { label: 'Enabled' }).on('change', apply));
-    shaderBlades.push(folder.addBinding(state, 'frequency', {
-      min: 0.1,
-      max: 40,
-      step: 0.1,
-      label: 'Frequency',
-    }).on('change', apply));
-    shaderBlades.push(folder.addBinding(state, 'amplitude', {
-      min: 0,
-      max: 0.2,
-      step: 0.001,
-      label: 'Amplitude',
-    }).on('change', apply));
-    shaderBlades.push(folder.addBinding(state, 'speed', {
-      min: 0,
-      max: 8,
-      step: 0.01,
-      label: 'Speed',
-    }).on('change', apply));
-    shaderBlades.push(folder.addBinding(state, 'strength', {
-      min: 0,
-      max: 1,
-      step: 0.01,
-      label: 'Strength',
-    }).on('change', apply));
-    shaderBlades.push(folder.addButton({ title: 'Reset' }).on('click', () => {
-      heatShimmerEffect.reset();
-      Object.assign(state, heatShimmerEffect.getState());
-      updateShaderUiState();
-    }));
+    shaderBlades.push(
+      folder.addBinding(state, 'enabled', { label: 'Enabled' }).on('change', apply),
+    );
+    shaderBlades.push(
+      folder
+        .addBinding(state, 'frequency', {
+          min: 0.1,
+          max: 40,
+          step: 0.1,
+          label: 'Frequency',
+        })
+        .on('change', apply),
+    );
+    shaderBlades.push(
+      folder
+        .addBinding(state, 'amplitude', {
+          min: 0,
+          max: 0.2,
+          step: 0.001,
+          label: 'Amplitude',
+        })
+        .on('change', apply),
+    );
+    shaderBlades.push(
+      folder
+        .addBinding(state, 'speed', {
+          min: 0,
+          max: 8,
+          step: 0.01,
+          label: 'Speed',
+        })
+        .on('change', apply),
+    );
+    shaderBlades.push(
+      folder
+        .addBinding(state, 'strength', {
+          min: 0,
+          max: 1,
+          step: 0.01,
+          label: 'Strength',
+        })
+        .on('change', apply),
+    );
+    shaderBlades.push(
+      folder.addButton({ title: 'Reset' }).on('click', () => {
+        heatShimmerEffect.reset();
+        Object.assign(state, heatShimmerEffect.getState());
+        updateShaderUiState();
+      }),
+    );
   }
   updateShaderUiState();
 

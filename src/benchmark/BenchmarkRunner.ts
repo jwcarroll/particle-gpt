@@ -59,7 +59,7 @@ export class BenchmarkRunner {
       onProgress?: (progress: BenchmarkProgress) => void;
       onComplete?: (result: BenchmarkResult) => void;
       onInvalid?: (reason: string) => void;
-    } = {}
+    } = {},
   ): void {
     if (this.isRunning()) {
       console.warn('Benchmark already running');
@@ -85,7 +85,7 @@ export class BenchmarkRunner {
       emissionRate: BENCHMARK_EMISSION_RATE,
     });
     const initialParticleCount = scenario.settings.rampMode
-      ? scenario.settings.rampStartCount ?? scenario.settings.maxParticleCount
+      ? (scenario.settings.rampStartCount ?? scenario.settings.maxParticleCount)
       : scenario.settings.maxParticleCount;
     world.resetPopulation(initialParticleCount, { seed: scenario.settings.seed });
     this.applyForcePreset(scenario);
@@ -102,7 +102,8 @@ export class BenchmarkRunner {
     this.collector.reset();
 
     // Reset ramp tracking
-    this.currentRampParticles = scenario.settings.rampStartCount ?? scenario.settings.maxParticleCount;
+    this.currentRampParticles =
+      scenario.settings.rampStartCount ?? scenario.settings.maxParticleCount;
     this.belowFpsSinceMilliseconds = null;
     this.breakPointParticles = null;
   }
@@ -114,7 +115,7 @@ export class BenchmarkRunner {
       particleCount: number;
       poolSize: number;
     },
-    world: World
+    world: World,
   ): void {
     if (!this.isRunning() || !this.scenario) return;
 
@@ -135,8 +136,8 @@ export class BenchmarkRunner {
       if (this.collector.getFrameCount() >= 30 && rollingFps < FPS_THRESHOLD) {
         this.belowFpsSinceMilliseconds ??= now;
         if (
-          now - this.belowFpsSinceMilliseconds >= SUSTAINED_DROP_MILLISECONDS
-          && !this.breakPointParticles
+          now - this.belowFpsSinceMilliseconds >= SUSTAINED_DROP_MILLISECONDS &&
+          !this.breakPointParticles
         ) {
           this.breakPointParticles = this.currentRampParticles;
           this.complete(world, this.breakPointParticles);

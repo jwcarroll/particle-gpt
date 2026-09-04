@@ -43,17 +43,17 @@ Single foreground deltas are clamped to 100 ms. Backlog is preserved while recov
 
 ## State ownership
 
-| State | Current owner | Notes |
-| --- | --- | --- |
-| Particle position, velocity, age | `World` / `Particle` | Mutable hot-path data; pooled after death |
-| World settings | `World` | Updated through shallow partial merges |
-| Physics schedule and simulation time | `SimulationClock` | Fixed 60 Hz; rendering never advances authoritative time |
-| Particle generation randomness | `World` | Defaults to `Math.random`; seeded during benchmark population resets |
-| Legacy uniform forces | `World` | Stored by name; separate from plugin registry |
-| Plugin state | Each plugin instance | Registry snapshots are shallow object copies |
-| Renderer resources | Concrete renderer | Renderers must treat particles as read-only |
-| UI editing state | `setupTweakPane` in `main.ts` | Several objects mirror plugin/world state |
-| Benchmark history | `BenchmarkStorage` | JSON in browser `localStorage` |
+| State                                | Current owner                 | Notes                                                                |
+| ------------------------------------ | ----------------------------- | -------------------------------------------------------------------- |
+| Particle position, velocity, age     | `World` / `Particle`          | Mutable hot-path data; pooled after death                            |
+| World settings                       | `World`                       | Updated through shallow partial merges                               |
+| Physics schedule and simulation time | `SimulationClock`             | Fixed 60 Hz; rendering never advances authoritative time             |
+| Particle generation randomness       | `World`                       | Defaults to `Math.random`; seeded during benchmark population resets |
+| Legacy uniform forces                | `World`                       | Stored by name; separate from plugin registry                        |
+| Plugin state                         | Each plugin instance          | Registry snapshots are shallow object copies                         |
+| Renderer resources                   | Concrete renderer             | Renderers must treat particles as read-only                          |
+| UI editing state                     | `setupTweakPane` in `main.ts` | Several objects mirror plugin/world state                            |
+| Benchmark history                    | `BenchmarkStorage`            | JSON in browser `localStorage`                                       |
 
 ## Simulation contracts
 

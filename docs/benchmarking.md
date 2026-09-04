@@ -6,12 +6,12 @@ The benchmark subsystem should answer whether a specific code or configuration c
 
 ## Current scenarios
 
-| ID | Intent | Nominal population | Collisions | Seed |
-| --- | --- | ---: | --- | ---: |
-| `standard` | Baseline rendering/update load | 1,000 | Off | 1,337 |
-| `stress` | Higher particle count | 5,000 | Off | 1,337 |
-| `collision` | Dense collision workload | 500 | On | 1,337 |
-| `ramp` | Find approximate 60 FPS limit | 100 → 30,000 | Off | 1,337 |
+| ID          | Intent                         | Nominal population | Collisions |  Seed |
+| ----------- | ------------------------------ | -----------------: | ---------- | ----: |
+| `standard`  | Baseline rendering/update load |              1,000 | Off        | 1,337 |
+| `stress`    | Higher particle count          |              5,000 | Off        | 1,337 |
+| `collision` | Dense collision workload       |                500 | On         | 1,337 |
+| `ramp`      | Find approximate 60 FPS limit  |       100 → 30,000 | Off        | 1,337 |
 
 The current implementation applies gravity-only, disables all WebGL effects except age alpha, resets to the scenario's exact seeded starting population before warmup, and ramps at 3,000 particles per simulated second.
 

@@ -4,15 +4,15 @@ This directory is the progressive-discovery entrypoint for humans and LLM agents
 
 ## Choose a path
 
-| If you need to… | Read | Why |
-| --- | --- | --- |
-| Make any repository change | [`../AGENTS.md`](../AGENTS.md) | Operating rules, invariants, commands, and validation expectations |
-| Understand runtime behavior | [`architecture.md`](architecture.md) | Composition, frame flow, state ownership, and current limitations |
-| Build, test, or review a change | [`development.md`](development.md) | Workflow and risk-based validation matrix |
-| Touch benchmarks or performance | [`benchmarking.md`](benchmarking.md) | Measurement lifecycle, manifest, and comparison rules |
-| Prepare a commit or release | [`versioning.md`](versioning.md) | Semantic Versioning, commit syntax, and release checklist |
-| Implement the modernization roadmap | [`improvement-spec.html`](improvement-spec.html) | Standalone requirements, work packages, acceptance criteria, and sequencing |
-| Change a recorded architectural direction | [`adrs/README.md`](adrs/README.md) | Decision index and ADR lifecycle |
+| If you need to…                           | Read                                             | Why                                                                         |
+| ----------------------------------------- | ------------------------------------------------ | --------------------------------------------------------------------------- |
+| Make any repository change                | [`../AGENTS.md`](../AGENTS.md)                   | Operating rules, invariants, commands, and validation expectations          |
+| Understand runtime behavior               | [`architecture.md`](architecture.md)             | Composition, frame flow, state ownership, and current limitations           |
+| Build, test, or review a change           | [`development.md`](development.md)               | Workflow and risk-based validation matrix                                   |
+| Touch benchmarks or performance           | [`benchmarking.md`](benchmarking.md)             | Measurement lifecycle, manifest, and comparison rules                       |
+| Prepare a commit or release               | [`versioning.md`](versioning.md)                 | Semantic Versioning, commit syntax, and release checklist                   |
+| Implement the modernization roadmap       | [`improvement-spec.html`](improvement-spec.html) | Standalone requirements, work packages, acceptance criteria, and sequencing |
+| Change a recorded architectural direction | [`adrs/README.md`](adrs/README.md)               | Decision index and ADR lifecycle                                            |
 
 ## Source-of-truth hierarchy
 

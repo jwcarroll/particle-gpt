@@ -39,15 +39,15 @@ export class BenchmarkStorage {
   }
 
   getById(id: string): BenchmarkResult | undefined {
-    return this.results.find(r => r.id === id);
+    return this.results.find((r) => r.id === id);
   }
 
   getByLabel(label: string): BenchmarkResult | undefined {
-    return this.results.find(r => r.userLabel === label);
+    return this.results.find((r) => r.userLabel === label);
   }
 
   delete(id: string): boolean {
-    const index = this.results.findIndex(r => r.id === id);
+    const index = this.results.findIndex((r) => r.id === id);
     if (index !== -1) {
       this.results.splice(index, 1);
       this.saveToLocalStorage();
@@ -77,7 +77,7 @@ export class BenchmarkStorage {
       for (const result of imported) {
         if (this.isValidResult(result)) {
           // Avoid duplicates by ID
-          if (!this.results.find(r => r.id === result.id)) {
+          if (!this.results.find((r) => r.id === result.id)) {
             this.results.push(result);
             count++;
           }

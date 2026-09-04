@@ -2,6 +2,12 @@
 
 All notable changes to Particle GPT are recorded here. Releases follow Semantic Versioning and commits follow Conventional Commits.
 
+## [Unreleased]
+
+### Added
+
+- ESLint and Prettier checks, a Node 24 support declaration, and GitHub Actions validation on pushes and pull requests.
+
 ## [2.1.0] - 2026-09-04
 
 ### Added

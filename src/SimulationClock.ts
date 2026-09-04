@@ -57,7 +57,8 @@ export class SimulationClock {
     this.fixedStepSeconds = options.fixedStepSeconds ?? DEFAULT_FIXED_STEP_SECONDS;
     this.maxFrameDeltaSeconds = options.maxFrameDeltaSeconds ?? DEFAULT_MAX_FRAME_DELTA_SECONDS;
     this.maxStepsPerCallback = options.maxStepsPerCallback ?? DEFAULT_MAX_STEPS_PER_CALLBACK;
-    this.overloadThresholdSeconds = options.overloadThresholdSeconds ?? DEFAULT_OVERLOAD_THRESHOLD_SECONDS;
+    this.overloadThresholdSeconds =
+      options.overloadThresholdSeconds ?? DEFAULT_OVERLOAD_THRESHOLD_SECONDS;
 
     this.validatePositiveFinite(this.fixedStepSeconds, 'fixedStepSeconds');
     this.validatePositiveFinite(this.maxFrameDeltaSeconds, 'maxFrameDeltaSeconds');
@@ -67,7 +68,10 @@ export class SimulationClock {
     }
   }
 
-  advance(wallTimeMilliseconds: number, update: (fixedStepSeconds: number) => void): SimulationClockFrame {
+  advance(
+    wallTimeMilliseconds: number,
+    update: (fixedStepSeconds: number) => void,
+  ): SimulationClockFrame {
     if (!Number.isFinite(wallTimeMilliseconds)) {
       throw new RangeError('wallTimeMilliseconds must be finite.');
     }
@@ -95,8 +99,8 @@ export class SimulationClock {
 
     let physicsSteps = 0;
     while (
-      this.accumulatorSeconds + FLOATING_POINT_EPSILON >= this.fixedStepSeconds
-      && physicsSteps < this.maxStepsPerCallback
+      this.accumulatorSeconds + FLOATING_POINT_EPSILON >= this.fixedStepSeconds &&
+      physicsSteps < this.maxStepsPerCallback
     ) {
       update(this.fixedStepSeconds);
       this.simulationTimeSeconds += this.fixedStepSeconds;

@@ -4,9 +4,9 @@
 
 export interface FrameMetrics {
   timestamp: number;
-  frameTime: number;      // Total frame time (ms)
-  updateTime: number;     // world.update() time (ms)
-  renderTime: number;     // renderer.render() time (ms)
+  frameTime: number; // Total frame time (ms)
+  updateTime: number; // world.update() time (ms)
+  renderTime: number; // renderer.render() time (ms)
   particleCount: number;
   poolSize: number;
 }
@@ -16,21 +16,21 @@ export interface BenchmarkStats {
   minFps: number;
   maxFps: number;
   avgFrameTime: number;
-  p95FrameTime: number;   // 95th percentile for jank detection
+  p95FrameTime: number; // 95th percentile for jank detection
   avgUpdateTime: number;
   avgRenderTime: number;
-  framesDropped: number;  // Frames > 16.67ms
-  frameDropRate: number;  // Percentage dropped
+  framesDropped: number; // Frames > 16.67ms
+  frameDropRate: number; // Percentage dropped
   totalFrames: number;
   // Ramp test specific
-  breakPointParticles?: number;  // Particle count when FPS dropped below threshold
+  breakPointParticles?: number; // Particle count when FPS dropped below threshold
 }
 
 export interface BenchmarkScenario {
   id: string;
   name: string;
   description: string;
-  duration: number;       // Duration in seconds
+  duration: number; // Duration in seconds
   warmupDuration: number; // Warmup period in seconds (not counted in stats)
   settings: ScenarioSettings;
 }
@@ -61,7 +61,7 @@ export interface EnvironmentInfo {
 export interface BenchmarkResult {
   id: string;
   timestamp: string;
-  userLabel?: string;     // e.g., "baseline", "after optimization"
+  userLabel?: string; // e.g., "baseline", "after optimization"
   scenario: BenchmarkScenario;
   stats: BenchmarkStats;
   environment: EnvironmentInfo;
@@ -93,7 +93,7 @@ export interface BenchmarkProgress {
   state: BenchmarkState;
   elapsedTime: number;
   totalTime: number;
-  progress: number;       // 0-100
-  currentParticles?: number;  // For ramp tests
-  currentFps?: number;        // For ramp tests
+  progress: number; // 0-100
+  currentParticles?: number; // For ramp tests
+  currentFps?: number; // For ramp tests
 }

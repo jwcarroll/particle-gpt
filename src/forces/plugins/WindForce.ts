@@ -95,10 +95,9 @@ export class WindForcePlugin implements ForcePlugin<WindForceState> {
     const directionNoise = this.fbm1D(this.state.seed + 1013904223, t * turbulenceHz * 0.6);
     const gustValue = this.stepGust(context.dt);
     const strengthMps2 =
-      this.state.baseMps2 +
-      this.state.variabilityMps2 * strengthNoise +
-      gustValue;
-    const directionDegNow = this.state.directionDeg + this.state.directionJitterDeg * directionNoise;
+      this.state.baseMps2 + this.state.variabilityMps2 * strengthNoise + gustValue;
+    const directionDegNow =
+      this.state.directionDeg + this.state.directionJitterDeg * directionNoise;
     const radians = directionDegNow * (Math.PI / 180);
     const strength = strengthMps2 * this.pixelsPerMeter;
 
@@ -115,7 +114,8 @@ export class WindForcePlugin implements ForcePlugin<WindForceState> {
     if (this.state.activeGustDurationSec <= 0 && this.nextRandom() < triggerProbability) {
       this.state.activeGustDurationSec = Math.max(this.state.gustDurationSec, 0.1);
       this.state.activeGustElapsedSec = 0;
-      this.state.activeGustStrengthMps2 = this.state.gustStrengthMps2 * (0.6 + this.nextRandom() * 0.4);
+      this.state.activeGustStrengthMps2 =
+        this.state.gustStrengthMps2 * (0.6 + this.nextRandom() * 0.4);
     }
 
     if (this.state.activeGustDurationSec <= 0) {
@@ -174,7 +174,7 @@ export class WindForcePlugin implements ForcePlugin<WindForceState> {
     h = (h ^ (h >>> 13)) >>> 0;
     h = Math.imul(h, 1274126177) >>> 0;
     h = (h ^ (h >>> 16)) >>> 0;
-    return (h / 2147483648) - 1;
+    return h / 2147483648 - 1;
   }
 
   private normalizeSeed(seed: number): number {

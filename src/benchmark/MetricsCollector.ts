@@ -72,9 +72,9 @@ export class MetricsCollector {
       return this.emptyStats();
     }
 
-    const frameTimes = this.frames.map(f => f.frameTime);
-    const updateTimes = this.frames.map(f => f.updateTime);
-    const renderTimes = this.frames.map(f => f.renderTime);
+    const frameTimes = this.frames.map((f) => f.frameTime);
+    const updateTimes = this.frames.map((f) => f.updateTime);
+    const renderTimes = this.frames.map((f) => f.renderTime);
 
     const avgFrameTime = this.average(frameTimes);
     const avgFps = avgFrameTime > 0 ? 1000 / avgFrameTime : 0;
@@ -85,7 +85,7 @@ export class MetricsCollector {
     const p95Index = Math.floor(sortedFrameTimes.length * 0.95);
     const p95FrameTime = sortedFrameTimes[p95Index] || maxFrameTime;
 
-    const framesDropped = frameTimes.filter(t => t > FRAME_DROP_THRESHOLD).length;
+    const framesDropped = frameTimes.filter((t) => t > FRAME_DROP_THRESHOLD).length;
     const frameDropRate = (framesDropped / frameTimes.length) * 100;
 
     return {

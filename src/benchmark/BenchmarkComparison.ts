@@ -6,27 +6,27 @@ export class BenchmarkComparison {
       avgFps: this.calculateChange(
         baseline.stats.avgFps,
         current.stats.avgFps,
-        true // higher is better
+        true, // higher is better
       ),
       p95FrameTime: this.calculateChange(
         baseline.stats.p95FrameTime,
         current.stats.p95FrameTime,
-        false // lower is better
+        false, // lower is better
       ),
       frameDropRate: this.calculateChange(
         baseline.stats.frameDropRate,
         current.stats.frameDropRate,
-        false // lower is better
+        false, // lower is better
       ),
       avgUpdateTime: this.calculateChange(
         baseline.stats.avgUpdateTime,
         current.stats.avgUpdateTime,
-        false // lower is better
+        false, // lower is better
       ),
       avgRenderTime: this.calculateChange(
         baseline.stats.avgRenderTime,
         current.stats.avgRenderTime,
-        false // lower is better
+        false, // lower is better
       ),
     };
 
@@ -43,15 +43,16 @@ export class BenchmarkComparison {
   private calculateChange(
     baselineValue: number,
     currentValue: number,
-    higherIsBetter: boolean
+    higherIsBetter: boolean,
   ): PercentageChange {
-    const percentChange = baselineValue !== 0
-      ? ((currentValue - baselineValue) / baselineValue) * 100
-      : currentValue > 0 ? 100 : 0;
+    const percentChange =
+      baselineValue !== 0
+        ? ((currentValue - baselineValue) / baselineValue) * 100
+        : currentValue > 0
+          ? 100
+          : 0;
 
-    const improved = higherIsBetter
-      ? currentValue > baselineValue
-      : currentValue < baselineValue;
+    const improved = higherIsBetter ? currentValue > baselineValue : currentValue < baselineValue;
 
     return {
       baselineValue,
@@ -119,9 +120,10 @@ export class BenchmarkComparison {
   private formatLine(label: string, change: PercentageChange, unit = ''): string {
     const baseVal = this.formatNumber(change.baselineValue);
     const currVal = this.formatNumber(change.currentValue);
-    const pctStr = change.percentChange >= 0
-      ? `+${change.percentChange.toFixed(1)}%`
-      : `${change.percentChange.toFixed(1)}%`;
+    const pctStr =
+      change.percentChange >= 0
+        ? `+${change.percentChange.toFixed(1)}%`
+        : `${change.percentChange.toFixed(1)}%`;
     const indicator = change.improved ? '✓' : '✗';
 
     return `${label.padEnd(12)} ${currVal}${unit} vs ${baseVal}${unit}  (${pctStr}) ${indicator}`;

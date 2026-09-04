@@ -23,13 +23,16 @@ npm install
 npm run dev
 npm test
 npm run test:watch
+npm run lint
+npm run format:check
+npm run check
 npm run build
 npm run preview
 ```
 
-The development server is configured for port 3000 and opens a browser. `npm run build` currently runs strict TypeScript compilation followed by a Vite production build.
+The development server is configured for port 3000 and opens a browser. `npm run check` is the local CI gate: lint, formatting, unit tests, then strict TypeScript compilation and a Vite production build. The supported runtime is Node.js 24 or later, declared in `package.json` and `.nvmrc`.
 
-`npm test` runs the Node-based TypeScript domain and benchmark tests once. `npm run test:watch` reruns them while files change. There is not yet a lint, formatting, browser-test, or CI command; do not claim those checks passed until the scripts exist and have been run.
+`npm test` runs the Node-based TypeScript domain and benchmark tests once. `npm run test:watch` reruns them while files change. `npm run lint` rejects warnings, and `npm run format:check` verifies Prettier formatting. GitHub Actions runs `npm ci` and `npm run check` on pushes and pull requests. Browser tests are not yet automated.
 
 ## Repository map
 
@@ -90,6 +93,8 @@ Always run:
 
 ```bash
 npm test
+npm run lint
+npm run format:check
 npm run build
 ```
 

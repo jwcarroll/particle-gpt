@@ -1,26 +1,26 @@
 /**
  * Performance Test Results:
- * 
+ *
  * Initial Version:
  * - Date: 2024-10-31
  * - Description: Initial implementation of the World class with particle simulation. No optimizations.
  * - Particle Count at 60fps: 1200
  * - Notes: Initial performance baseline.
- * 
+ *
  * Subsequent Changes:
- * 
+ *
  * Version 1.1:
  * - Date: 2024-10-31
  * - Description: Added particle pooling to reuse particles instead of creating new ones.
  * - Particle Count at 60fps: 1300
  * - Notes: Didn't have a significant impact on FPS performance.
- * 
+ *
  */
-import { Force } from "./force";
-import { Particle } from "./particle";
-import { Vector } from "./vector";
-import { ForceContext, ForceVector } from "./forces";
-import { createSeededRandom, RandomSource } from "./random";
+import { Force } from './force';
+import { Particle } from './particle';
+import { Vector } from './vector';
+import { ForceContext, ForceVector } from './forces';
+import { createSeededRandom, RandomSource } from './random';
 
 export const MAX_PARTICLE_COUNT = 50_000;
 export const MAX_PARTICLE_EMISSION_RATE = 1_000_000;
@@ -67,13 +67,11 @@ const defaultSettings: WorldSettings = {
   emissionRate: 1_800,
 };
 
-
 export class World {
   activeParticles: Particle[] = [];
   particlePool: Particle[] = [];
 
   private _settings: WorldSettings = { ...defaultSettings };
-
 
   private _forces: Map<string, Force> = new Map();
   private _forceList: Force[] = [];
@@ -246,7 +244,8 @@ export class World {
         particle,
         this._settings.height,
         this._settings.width,
-        this._settings.elasticity);
+        this._settings.elasticity,
+      );
 
       i++;
     }
@@ -258,20 +257,23 @@ export class World {
     this.refillParticles(dt);
   }
 
-  handleParticleCollidingWithBoundingBox(particle: Particle, height: number, width: number, elasticity: number) {
+  handleParticleCollidingWithBoundingBox(
+    particle: Particle,
+    height: number,
+    width: number,
+    elasticity: number,
+  ) {
     if (particle.x - particle.radius < 0) {
       particle.x = particle.radius + 1;
       particle.velocity.x *= -elasticity;
-    }
-    else if (particle.x + particle.radius > width) {
+    } else if (particle.x + particle.radius > width) {
       particle.x = width - particle.radius - 1;
       particle.velocity.x *= -elasticity;
     }
     if (particle.y - particle.radius < 0) {
       particle.y = particle.radius + 1;
       particle.velocity.y *= -elasticity;
-    }
-    else if (particle.y + particle.radius > height) {
+    } else if (particle.y + particle.radius > height) {
       particle.y = height - particle.radius - 1;
       particle.velocity.y *= -elasticity;
     }
@@ -280,14 +282,23 @@ export class World {
   private addRandomParticle() {
     const x = this._randomSource() * this._settings.width;
     const y = this._randomSource() * this._settings.height;
-    const startingAngleDegrees = this.getRandomNumberBetween(this._settings.minStartingAngle, this._settings.maxStartingAngle);
+    const startingAngleDegrees = this.getRandomNumberBetween(
+      this._settings.minStartingAngle,
+      this._settings.maxStartingAngle,
+    );
     const startingAngleRadians = startingAngleDegrees * (Math.PI / 180);
-    const velocity = this.getRandomNumberBetween(this._settings.minParticleVelocity, this._settings.maxParticleVelocity);
+    const velocity = this.getRandomNumberBetween(
+      this._settings.minParticleVelocity,
+      this._settings.maxParticleVelocity,
+    );
     const velocityX = Math.cos(startingAngleRadians) * velocity;
     const velocityY = Math.sin(startingAngleRadians) * velocity;
     const radius = this.getRadius();
     const fillStyle = this.getFillStyle();
-    const maxLifeSpan = this.getRandomNumberBetween(this._settings.minParticleLifeSpan, this._settings.maxParticleLifeSpan);
+    const maxLifeSpan = this.getRandomNumberBetween(
+      this._settings.minParticleLifeSpan,
+      this._settings.maxParticleLifeSpan,
+    );
 
     const particle = this.getParticleFromPool();
     particle.velocity.x = velocityX;
@@ -340,7 +351,10 @@ export class World {
   }
 
   private getRadius() {
-    return this.getRandomNumberBetween(this._settings.minParticleRadius, this._settings.maxParticleRadius);
+    return this.getRandomNumberBetween(
+      this._settings.minParticleRadius,
+      this._settings.maxParticleRadius,
+    );
   }
 
   private getFillStyle() {
