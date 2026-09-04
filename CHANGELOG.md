@@ -2,6 +2,13 @@
 
 All notable changes to Particle GPT are recorded here. Releases follow Semantic Versioning and commits follow Conventional Commits. Release Please maintains release entries from commits merged to `main`.
 
+## [2.3.0](https://github.com/jwcarroll/particle-gpt/compare/v2.2.0...v2.3.0) (2026-09-04)
+
+
+### Features
+
+* **benchmark:** add reproducible run manifests ([50498ff](https://github.com/jwcarroll/particle-gpt/commit/50498ff61b64d09653d003ae93891f304c92d032))
+
 ## [2.2.0](https://github.com/jwcarroll/particle-gpt/compare/v2.1.0...v2.2.0) (2026-09-04)
 
 
