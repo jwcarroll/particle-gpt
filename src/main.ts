@@ -2,10 +2,13 @@ import './style.css';
 import { World } from './simulator';
 import { BladeApi, Pane } from 'tweakpane';
 import * as EssentialsPlugin from '@tweakpane/plugin-essentials';
-import { Canvas2DRenderer } from './renderers/Canvas2DRenderer';
-import { DirectCanvas2DRenderer } from './renderers/DirectCanvas2DRenderer';
-import { WebGLRenderer } from './renderers/WebGLRenderer';
 import { ParticleRenderer } from './renderers/ParticleRenderer';
+import {
+  RendererManager,
+  RendererSelection,
+  RendererType,
+  WebGLCapabilityStatus,
+} from './renderers/RendererManager';
 import { BenchmarkModule } from './benchmark';
 import { ForceRegistry, GravityForcePlugin, RadialForcePlugin, WindForcePlugin } from './forces';
 import {
@@ -54,18 +57,11 @@ if (!canvas) {
   webglCanvas.id = 'webgl-canvas';
   webglCanvas.style.display = 'none';
   canvas.parentElement?.appendChild(webglCanvas);
-  const webglRenderer = new WebGLRenderer(webglCanvas, shaderRegistry);
 
-  // Renderer setup with hot-swapping support
-  const renderers = {
-    DoubleBuffered: new Canvas2DRenderer(canvas),
-    Direct: new DirectCanvas2DRenderer(canvas),
-    WebGL: webglRenderer,
-  };
-  type RendererType = keyof typeof renderers;
+  const rendererManager = new RendererManager(canvas, webglCanvas, shaderRegistry);
 
   const rendererState = { current: 'DoubleBuffered' as RendererType };
-  let renderer: ParticleRenderer = renderers[rendererState.current];
+  let renderer: ParticleRenderer = rendererManager.activeRenderer;
 
   // Helper to show correct canvas
   const updateCanvasVisibility = (type: RendererType) => {
@@ -107,22 +103,23 @@ if (!canvas) {
     world,
     forceRegistry,
     shaderRegistry,
-    webglRenderer,
     benchmark,
     rendererState,
     (type: RendererType) => {
-      renderer = renderers[type];
-      renderer.initialize(window.innerWidth, window.innerHeight);
-      updateCanvasVisibility(type);
+      const selection = rendererManager.select(type);
+      rendererState.current = selection.active;
+      renderer = rendererManager.activeRenderer;
+      updateCanvasVisibility(selection.active);
+      return selection;
     },
+    () => rendererManager.getWebGLCapabilityStatus(),
   );
 
-  // Initialize all renderers
-  Object.values(renderers).forEach((r) => r.initialize(window.innerWidth, window.innerHeight));
+  rendererManager.initialize(window.innerWidth, window.innerHeight);
 
   // Handle window resize
   window.addEventListener('resize', () => {
-    Object.values(renderers).forEach((r) => r.resize(window.innerWidth, window.innerHeight));
+    rendererManager.resize(window.innerWidth, window.innerHeight);
     world.updateSettings({
       height: window.innerHeight,
       width: window.innerWidth,
@@ -236,14 +233,25 @@ function createRandomPalette(count: number): string[] {
   return colors;
 }
 
+function describeWebGLCapability(status: WebGLCapabilityStatus): string {
+  if (status.state === 'available') return 'Available';
+  if (status.state === 'unavailable') return status.reason ?? 'Unavailable';
+  return 'Not checked';
+}
+
+function getCompileStatus(status: WebGLCapabilityStatus): string {
+  if (status.renderer) return status.renderer.getCompileStatus();
+  return status.state === 'unavailable' ? 'Unavailable' : 'Not initialized';
+}
+
 function setupTweakPane(
   world: World,
   forceRegistry: ForceRegistry,
   shaderRegistry: ShaderRegistry,
-  webglRenderer: WebGLRenderer,
   benchmark: BenchmarkModule,
   rendererState: { current: string },
-  onRendererChange: (type: 'DoubleBuffered' | 'Direct' | 'WebGL') => void,
+  onRendererChange: (type: RendererType) => RendererSelection,
+  getWebGLCapabilityStatus: () => WebGLCapabilityStatus,
 ): PaneReferences {
   const pane = new Pane();
   pane.registerPlugin(EssentialsPlugin);
@@ -551,21 +559,25 @@ function setupTweakPane(
       },
     })
     .on('change', (ev) => {
-      onRendererChange(ev.value as 'DoubleBuffered' | 'Direct' | 'WebGL');
+      onRendererChange(ev.value as RendererType);
       updateShaderUiState();
     });
 
   const shadersFolder = renderingTab.addFolder({ title: 'Shaders', expanded: true });
+  const initialWebGLStatus = getWebGLCapabilityStatus();
   const shaderUiState = {
     webglActive: rendererState.current === 'WebGL' ? 'Yes' : 'No',
-    compileStatus: webglRenderer.getCompileStatus(),
+    availability: describeWebGLCapability(initialWebGLStatus),
+    compileStatus: getCompileStatus(initialWebGLStatus),
     activeEffects: 'None',
   };
   const shaderBlades: BladeApi[] = [];
 
   const updateShaderUiState = () => {
+    const webglStatus = getWebGLCapabilityStatus();
     shaderUiState.webglActive = rendererState.current === 'WebGL' ? 'Yes' : 'No';
-    shaderUiState.compileStatus = webglRenderer.getCompileStatus();
+    shaderUiState.availability = describeWebGLCapability(webglStatus);
+    shaderUiState.compileStatus = getCompileStatus(webglStatus);
     const active = shaderRegistry
       .list()
       .filter((plugin) => plugin.getState().enabled)
@@ -580,6 +592,7 @@ function setupTweakPane(
   };
 
   shadersFolder.addBinding(shaderUiState, 'webglActive', { label: 'WebGL Active', readonly: true });
+  shadersFolder.addBinding(shaderUiState, 'availability', { label: 'Capability', readonly: true });
   shadersFolder.addBinding(shaderUiState, 'compileStatus', { label: 'Compile', readonly: true });
   shadersFolder.addBinding(shaderUiState, 'activeEffects', { label: 'Active', readonly: true });
 

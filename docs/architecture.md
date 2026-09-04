@@ -15,7 +15,7 @@ index.html
        │    ├─ injectable random source
        │    ├─ legacy named Force values
        │    └─ ForceRegistry provider
-       ├─ Renderer selection
+       ├─ RendererManager (lazy capability negotiation)
        │    ├─ Canvas2DRenderer (OffscreenCanvas copy)
        │    ├─ DirectCanvas2DRenderer
        │    └─ WebGLRenderer (WebGL 1 + ANGLE instancing)
@@ -72,6 +72,7 @@ Single foreground deltas are clamped to 100 ms. Backlog is preserved while recov
 
 - Canvas2D renderers draw circles and fade finite-lifespan particles.
 - The buffered renderer draws to `OffscreenCanvas` and copies to the visible canvas.
+- `RendererManager` creates Canvas2D renderers at startup and probes WebGL only when selected. If WebGL initialization fails, it retains the active Canvas2D renderer and reports the failure reason to the UI.
 - WebGL uses one instanced quad per particle, parses colors into RGB, and applies effect uniforms in a single shader program.
 - WebGL silently caps drawing at 50,000 particles.
 - Background, color parsing, antialiasing, alpha, and pixel-density behavior are not currently normalized across renderers.
