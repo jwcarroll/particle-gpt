@@ -39,11 +39,17 @@ docs(adr): accept renderer capability policy
 feat(storage)!: version benchmark result schema
 ```
 
-## Release checklist
+## Automated release process
 
-1. Confirm the intended change set and select the SemVer bump from the public impact.
-2. Update both package version fields and any documentation that names the current release.
-3. Run `npm test`, `npm run build`, and the task-specific checks in `development.md`.
-4. Commit with a Conventional Commit subject.
-5. Create an annotated `vMAJOR.MINOR.PATCH` tag on the validated release commit.
-6. Do not move or reuse a published release tag; issue a new patch version for corrections.
+Release Please runs on every push to `main` and uses Conventional Commit history to calculate the next SemVer version.
+
+1. Normal changes land on `main` with Conventional Commit subjects.
+2. Release Please opens or updates one **Release PR** containing the calculated version, `package-lock.json`, and generated changelog entry.
+3. Review and merge that Release PR when its proposed version and notes are correct.
+4. The next workflow run creates the `vMAJOR.MINOR.PATCH` tag and GitHub release.
+
+`release-please-config.json` and `.release-please-manifest.json` are source-controlled release state. The manifest starts at the existing `2.1.0` release and the bootstrap SHA prevents older history from being included in the first automated release.
+
+Do not manually edit release versions, prepend changelog release sections, or create release tags during ordinary feature work. Use `release-as` in the Release Please configuration only for an intentional override, and never move or reuse a published tag.
+
+The default GitHub Actions token can create the Release PR and release. If branch policy requires CI checks to execute on an action-created Release PR, configure a fine-grained bot token with repository contents and pull-request write access as the workflow token; GitHub does not recursively trigger workflows from the default token.

@@ -30,7 +30,7 @@ npm run build
 npm run preview
 ```
 
-The development server is configured for port 3000 and opens a browser. `npm run check` is the local CI gate: lint, formatting, unit tests, then strict TypeScript compilation and a Vite production build. The supported runtime is Node.js 24 or later, declared in `package.json` and `.nvmrc`.
+The development server is configured for port 3000 and opens a browser. `npm run check` is the local CI gate: lint, formatting, unit tests, then strict TypeScript compilation and a Vite production build. The supported runtime is Node.js 24 or later, declared in `package.json` and `.nvmrc`. Release Please runs on `main` and turns Conventional Commits into reviewable release PRs, version tags, and GitHub releases; see `docs/versioning.md` before changing release files.
 
 `npm test` runs the Node-based TypeScript domain and benchmark tests once. `npm run test:watch` reruns them while files change. `npm run lint` rejects warnings, and `npm run format:check` verifies Prettier formatting. GitHub Actions runs `npm ci` and `npm run check` on pushes and pull requests. Browser tests are not yet automated.
 

@@ -1,6 +1,6 @@
 # Changelog
 
-All notable changes to Particle GPT are recorded here. Releases follow Semantic Versioning and commits follow Conventional Commits.
+All notable changes to Particle GPT are recorded here. Releases follow Semantic Versioning and commits follow Conventional Commits. Release Please maintains release entries from commits merged to `main`.
 
 ## [Unreleased]
 
