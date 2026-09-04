@@ -77,6 +77,7 @@ Single foreground deltas are clamped to 100 ms. Backlog is preserved while recov
 - Particles retain their Canvas color string and a normalized opaque RGB value. WebGL uses that stored RGB directly, avoiding per-particle color parsing in the render loop.
 - WebGL uses one instanced quad per particle and applies effect uniforms in a single shader program.
 - If the browser loses a WebGL context, `RendererManager` marks it unavailable and moves active rendering to buffered Canvas2D; it does not mutate `World` or attempt GPU resource recovery mid-frame.
+- `BASE_RENDERER_PARITY_FIXTURE` provides deterministic shared pre-rasterization expectations for surface configuration, interpolation, color, radius, and lifetime opacity. Screenshot-tolerance assertions can build on this fixture when browser-test infrastructure is introduced.
 - WebGL silently caps drawing at 50,000 particles.
 - Background, color parsing, antialiasing, alpha, and pixel-density behavior are not currently normalized across renderers.
 

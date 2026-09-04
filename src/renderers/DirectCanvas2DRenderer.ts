@@ -2,6 +2,7 @@
 import { ParticleRenderer } from './ParticleRenderer';
 import { Particle } from '../particle';
 import { getBackingHeight, getBackingWidth, RenderSurfaceConfig } from './RenderSurface';
+import { getParticleOpacity } from './ParticleOpacity';
 
 /**
  * Direct renderer without double-buffering.
@@ -52,9 +53,7 @@ export class DirectCanvas2DRenderer implements ParticleRenderer {
           Math.PI * 2,
         );
 
-        if (p.maxLifeSpan !== null) {
-          this.ctx.globalAlpha = 1 - p.timeAlive / p.maxLifeSpan;
-        }
+        this.ctx.globalAlpha = getParticleOpacity(p.timeAlive, p.maxLifeSpan);
 
         this.ctx.fill();
       }

@@ -2,6 +2,7 @@
 import { ParticleRenderer } from './ParticleRenderer';
 import { Particle } from '../particle';
 import { getBackingHeight, getBackingWidth, RenderSurfaceConfig } from './RenderSurface';
+import { getParticleOpacity } from './ParticleOpacity';
 
 export class Canvas2DRenderer implements ParticleRenderer {
   private ctx: CanvasRenderingContext2D;
@@ -68,9 +69,7 @@ export class Canvas2DRenderer implements ParticleRenderer {
           Math.PI * 2,
         );
 
-        if (p.maxLifeSpan !== null) {
-          this.offscreenCtx.globalAlpha = 1 - p.timeAlive / p.maxLifeSpan;
-        }
+        this.offscreenCtx.globalAlpha = getParticleOpacity(p.timeAlive, p.maxLifeSpan);
 
         this.offscreenCtx.fill();
       }

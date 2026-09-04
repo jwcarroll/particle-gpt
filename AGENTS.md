@@ -68,7 +68,7 @@ Do not accidentally encode these as desired behavior:
 
 - Benchmark runs reset the exact starting population, but do not record a complete run manifest or restore the exact pre-run particle state.
 - Interactive clock overload diagnostics exist in code but are not yet exposed in the UI.
-- WebGL capability fallback, a shared background/device-pixel-ratio policy, a visible particle cap, normalized opaque particle colors, and Canvas2D recovery from context loss now exist, but visual-parity fixtures and benchmark-manifest capability reporting remain incomplete.
+- WebGL capability fallback, a shared background/device-pixel-ratio policy, a visible particle cap, normalized opaque particle colors, Canvas2D recovery from context loss, and deterministic parity fixtures now exist. Benchmark-manifest capability reporting remains incomplete.
 - “Radial” force currently uses the swarm centroid and returns one uniform force vector for the whole frame.
 - Plugin state is registered, but plugin UI and WebGL shader wiring are still manually centralized.
 

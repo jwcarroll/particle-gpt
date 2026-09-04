@@ -95,10 +95,10 @@ void main() {
     // Smooth edge for anti-aliasing
     float edgeAlpha = 1.0 - smoothstep(0.9, 1.0, dist);
     vec3 color = v_color.rgb;
-    float alpha = edgeAlpha;
+    float age = clamp(v_ageNorm, 0.0, 1.0);
+    float alpha = edgeAlpha * (1.0 - age);
 
     if (u_fxAgeAlphaEnabled > 0.5) {
-        float age = clamp(v_ageNorm, 0.0, 1.0);
         float ageFade = 1.0 - age;
         if (u_fxAgeAlphaCurve < 0.5) {
             // linear
@@ -110,7 +110,7 @@ void main() {
             // exponential
             ageFade = pow(max(1.0 - age, 0.0), max(u_fxAgeAlphaExponent, 0.01));
         }
-        alpha *= ageFade;
+        alpha = edgeAlpha * ageFade;
     }
 
     if (u_fxVelocityTintEnabled > 0.5) {
