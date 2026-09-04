@@ -161,7 +161,7 @@ void main() {
 `;
 
 // Pre-allocated typed arrays for particle data
-const MAX_PARTICLES = 50000;
+export const MAX_WEBGL_PARTICLES = 50_000;
 
 export class WebGLRenderer implements ParticleRenderer {
   private gl: WebGLRenderingContext;
@@ -284,7 +284,7 @@ export class WebGLRenderer implements ParticleRenderer {
 
     // Create instance buffer
     this.instanceBuffer = gl.createBuffer()!;
-    this.instanceData = new Float32Array(MAX_PARTICLES * 8);
+    this.instanceData = new Float32Array(MAX_WEBGL_PARTICLES * 8);
 
     // Enable blending for alpha
     gl.enable(gl.BLEND);
@@ -329,6 +329,10 @@ export class WebGLRenderer implements ParticleRenderer {
 
   getCompileStatus(): 'OK' | 'Error' {
     return this.compileStatus;
+  }
+
+  getParticleCapacity(): number {
+    return MAX_WEBGL_PARTICLES;
   }
 
   private parseColor(color: string): [number, number, number] {
@@ -422,7 +426,7 @@ export class WebGLRenderer implements ParticleRenderer {
   render(particles: Particle[], interpolationAlpha: number = 1): void {
     const gl = this.gl;
     const ext = this.ext;
-    const count = Math.min(particles.length, MAX_PARTICLES);
+    const count = Math.min(particles.length, MAX_WEBGL_PARTICLES);
 
     // Update instance data
     for (let i = 0; i < count; i++) {

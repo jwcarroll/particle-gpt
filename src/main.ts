@@ -247,6 +247,11 @@ function getCompileStatus(status: WebGLCapabilityStatus): string {
   return status.state === 'unavailable' ? 'Unavailable' : 'Not initialized';
 }
 
+function getWebGLParticleCapacity(status: WebGLCapabilityStatus): string {
+  if (!status.renderer) return 'Not available';
+  return `${status.renderer.getParticleCapacity().toLocaleString()} particles`;
+}
+
 function setupTweakPane(
   world: World,
   forceRegistry: ForceRegistry,
@@ -572,6 +577,7 @@ function setupTweakPane(
     webglActive: rendererState.current === 'WebGL' ? 'Yes' : 'No',
     availability: describeWebGLCapability(initialWebGLStatus),
     compileStatus: getCompileStatus(initialWebGLStatus),
+    particleCapacity: getWebGLParticleCapacity(initialWebGLStatus),
     activeEffects: 'None',
   };
   const shaderBlades: BladeApi[] = [];
@@ -581,6 +587,7 @@ function setupTweakPane(
     shaderUiState.webglActive = rendererState.current === 'WebGL' ? 'Yes' : 'No';
     shaderUiState.availability = describeWebGLCapability(webglStatus);
     shaderUiState.compileStatus = getCompileStatus(webglStatus);
+    shaderUiState.particleCapacity = getWebGLParticleCapacity(webglStatus);
     const active = shaderRegistry
       .list()
       .filter((plugin) => plugin.getState().enabled)
@@ -597,6 +604,10 @@ function setupTweakPane(
   shadersFolder.addBinding(shaderUiState, 'webglActive', { label: 'WebGL Active', readonly: true });
   shadersFolder.addBinding(shaderUiState, 'availability', { label: 'Capability', readonly: true });
   shadersFolder.addBinding(shaderUiState, 'compileStatus', { label: 'Compile', readonly: true });
+  shadersFolder.addBinding(shaderUiState, 'particleCapacity', {
+    label: 'Particle cap',
+    readonly: true,
+  });
   shadersFolder.addBinding(shaderUiState, 'activeEffects', { label: 'Active', readonly: true });
 
   const ageAlphaEffect = shaderRegistry.get('ageAlpha');
