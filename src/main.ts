@@ -120,6 +120,17 @@ if (!canvas) {
     createRenderSurfaceConfig(window.innerWidth, window.innerHeight, window.devicePixelRatio);
   rendererManager.initialize(getRenderSurface());
 
+  webglCanvas.addEventListener('webglcontextlost', (event) => {
+    event.preventDefault();
+    const selection = rendererManager.handleWebGLContextLoss();
+    if (selection.changed) {
+      rendererState.current = selection.active;
+      renderer = rendererManager.activeRenderer;
+      updateCanvasVisibility(selection.active);
+    }
+    paneRefs.refreshRendererUi();
+  });
+
   // Handle window resize
   window.addEventListener('resize', () => {
     rendererManager.resize(getRenderSurface());
@@ -192,6 +203,7 @@ interface FpsBladeApi extends BladeApi {
 
 type PaneReferences = {
   fpsgraph: FpsBladeApi;
+  refreshRendererUi: () => void;
 };
 
 type IntervalRange = {
@@ -1053,5 +1065,5 @@ function setupTweakPane(
     world.updateSettings(settings);
   });
 
-  return { fpsgraph };
+  return { fpsgraph, refreshRendererUi: updateShaderUiState };
 }

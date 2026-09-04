@@ -11,6 +11,7 @@ All notable changes to Particle GPT are recorded here. Releases follow Semantic 
 - Shared opaque renderer background and device-pixel-ratio-aware backing buffers.
 - Visible WebGL particle capacity to prevent silently truncated rendering workloads.
 - Opaque particle-color normalization, removing per-particle WebGL color parsing and rejecting ambiguous transparent colors.
+- Canvas2D fallback when the active WebGL context is lost, without resetting simulation state.
 
 ## [2.1.0] - 2026-09-04
 

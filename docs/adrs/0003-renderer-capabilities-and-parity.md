@@ -36,7 +36,8 @@ Introduce a `RendererManager` with capability negotiation and an explicit `Rende
 - Implemented in part: `RenderSurfaceConfig` gives every renderer one logical size, device pixel ratio, and opaque background. DPR scales backing buffers and rendering transforms, while world coordinates remain logical pixels.
 - Implemented in part: WebGL exposes its 50,000-particle cap in the UI rather than silently truncating its draw workload.
 - Implemented in part: particles normalize their opaque RGB value at creation and pool reset. Supported inputs are named primary colors, `#rgb`, `#rrggbb`, `rgb(r,g,b)`, and `hsl(h,s%,l%)`; transparent and unsupported inputs are rejected so Canvas2D and WebGL cannot interpret them differently.
-- Deferred: visual-parity fixtures, benchmark-manifest capability reporting, and WebGL context-loss recovery remain future work.
+- Implemented in part: a WebGL context-loss event preserves the simulation and switches active rendering to Canvas2D. WebGL is marked unavailable for the rest of the session instead of attempting an unsafe mid-frame resource rebuild.
+- Deferred: visual-parity fixtures and benchmark-manifest capability reporting remain future work.
 - Reset all mutable Canvas context state, including global alpha, every frame or use save/restore around rendering.
 - Avoid allocating or parsing color strings per particle per frame; normalize at particle initialization or palette change.
 - Report WebGL caps and the silent particle ceiling explicitly. Prefer a visible capacity warning over truncation.

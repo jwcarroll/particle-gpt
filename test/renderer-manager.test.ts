@@ -114,3 +114,29 @@ test('initializes WebGL once when selected and resizes it thereafter', () => {
   assert.deepEqual(webgl.resizeCalls, [resizedSurface]);
   assert.equal(manager.getWebGLCapabilityStatus().state, 'available');
 });
+
+test('falls back to Canvas2D after WebGL context loss without recreating WebGL', () => {
+  const webgl = new FakeRenderer();
+  let webglAttempts = 0;
+  const manager = createManager({
+    createDoubleBuffered: () => new FakeRenderer(),
+    createDirect: () => new FakeRenderer(),
+    createWebGL: () => {
+      webglAttempts += 1;
+      return webgl as unknown as WebGLRenderer;
+    },
+  });
+  manager.initialize(standardSurface);
+  manager.select('WebGL');
+
+  assert.deepEqual(manager.handleWebGLContextLoss(), {
+    active: 'DoubleBuffered',
+    changed: true,
+    reason: 'WebGL context was lost; switched to Canvas2D.',
+  });
+  assert.equal(manager.active, 'DoubleBuffered');
+  assert.equal(webgl.disposed, true);
+  assert.equal(manager.getWebGLCapabilityStatus().state, 'unavailable');
+  manager.select('WebGL');
+  assert.equal(webglAttempts, 1);
+});

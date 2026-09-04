@@ -96,6 +96,26 @@ export class RendererManager {
     return { active: this.active, changed };
   }
 
+  /**
+   * Keeps the simulation visible after a browser discards its GPU resources.
+   * A new renderer is not attempted during the current session because its
+   * underlying context may still be unavailable or unstable.
+   */
+  handleWebGLContextLoss(): RendererSelection {
+    if (!this.webglRenderer) {
+      return { active: this.active, changed: false };
+    }
+
+    const changed = this.active === 'WebGL';
+    this.webglRenderer.dispose();
+    this.webglRenderer = undefined;
+    this.webglFailureReason = 'WebGL context was lost; switched to Canvas2D.';
+    if (changed) {
+      this.active = 'DoubleBuffered';
+    }
+    return { active: this.active, changed, reason: this.webglFailureReason };
+  }
+
   resize(surface: RenderSurfaceConfig): void {
     this.surface = surface;
     Object.values(this.renderers).forEach((renderer) => renderer.resize(surface));
