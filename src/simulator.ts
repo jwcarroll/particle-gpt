@@ -17,7 +17,7 @@
  *
  */
 import { Force } from './force';
-import { Particle } from './particle';
+import { Particle, ParticleSnapshot } from './particle';
 import { Vector } from './vector';
 import { ForceContext, ForceVector } from './forces';
 import { createSeededRandom, RandomSource } from './random';
@@ -47,6 +47,14 @@ export interface WorldSettings {
   enableParticleCollision: boolean;
   fillStyle: string | ((random: RandomSource) => string);
   emissionRate: number;
+}
+
+export interface WorldStateSnapshot {
+  settings: WorldSettings;
+  particles: ParticleSnapshot[];
+  elapsedTime: number;
+  emissionAccumulator: number;
+  randomSource: RandomSource;
 }
 
 const defaultSettings: WorldSettings = {
@@ -83,6 +91,34 @@ export class World {
 
   getSettings() {
     return { ...this._settings };
+  }
+
+  snapshotState(): WorldStateSnapshot {
+    return {
+      settings: { ...this._settings },
+      particles: this.activeParticles.map((particle) => particle.snapshot()),
+      elapsedTime: this._elapsedTime,
+      emissionAccumulator: this._emissionAccumulator,
+      randomSource: this._randomSource,
+    };
+  }
+
+  restoreState(snapshot: WorldStateSnapshot): void {
+    while (this.activeParticles.length > 0) {
+      const particle = this.activeParticles.pop();
+      if (particle) this.returnParticleToPool(particle);
+    }
+
+    this._settings = { ...snapshot.settings };
+    this._elapsedTime = snapshot.elapsedTime;
+    this._emissionAccumulator = snapshot.emissionAccumulator;
+    this._randomSource = snapshot.randomSource;
+
+    for (const particleSnapshot of snapshot.particles) {
+      const particle = this.getParticleFromPool();
+      particle.restoreSnapshot(particleSnapshot);
+      this.activeParticles.push(particle);
+    }
   }
 
   updateSettings(settings: Partial<WorldSettings>) {

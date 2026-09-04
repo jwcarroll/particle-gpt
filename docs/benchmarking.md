@@ -15,20 +15,20 @@ The benchmark subsystem should answer whether a specific code or configuration c
 
 The current implementation applies gravity-only, disables all WebGL effects except age alpha, resets to the scenario's exact seeded starting population before warmup, and ramps at 3,000 particles per simulated second.
 
-## Known validity gaps
+## Current validity limits
 
-- Results omit renderer identity and detailed simulation/plugin configuration.
-- Comparisons do not reject different scenarios, renderers, viewport sizes, or configurations.
-- The fixed 20 ms dropped-frame threshold does not capture the display refresh context.
-- Complete and cancel restore the prior settings, plugin state, random source, and population count, but not the exact particle positions, velocities, ages, or prior random-generator state.
+- The manifest records renderer identity/capability, surface dimensions and DPR, clock configuration, seeded workload, complete plugin snapshots, and build identity. Comparisons reject workload differences by default and list the differing fields.
+- The fixed 20 ms dropped-frame threshold does not yet adapt to the display refresh context.
+- Built-in plugin snapshots use manifest schema version 1 until Phase 4 makes plugin schemas self-describing. Unknown or malformed imported manifests are rejected rather than partially applied.
+- A local build without `VITE_GIT_SHA` records its revision as `development`; configure that build variable for commit-level benchmark provenance.
 
 An active run is invalidated and restored if the document becomes hidden, the clock clamps wall time, or sustained physics overload is detected. Invalidated runs are not returned as completed results.
 
-Until these are resolved, describe benchmark results as diagnostic and include the observed renderer and viewport manually.
+Benchmark results remain diagnostic measurements rather than universal device scores, but saved baselines now preserve their workload definition and cannot silently compare unlike runs.
 
 ## Target lifecycle
 
-1. Capture the user's complete restorable state.
+1. Capture the user's complete restorable world, force, shader, and random-source state.
 2. Resolve and validate a benchmark scenario.
 3. Create an immutable `BenchmarkRunManifest`.
 4. Reset the simulation using the scenario seed and exact starting population.
@@ -36,7 +36,7 @@ Until these are resolved, describe benchmark results as diagnostic and include t
 6. Warm up without recording samples.
 7. Record time-based samples and progress.
 8. Complete or cancel through the same cleanup path.
-9. Restore the user's state exactly.
+9. Restore the user's state exactly, including particle positions, velocities, age, and interpolation state.
 10. Persist the result and manifest together.
 
 ## Required run manifest
@@ -71,9 +71,9 @@ Do not collapse multiple metrics into a verdict without showing the underlying v
 ## Acceptance checks
 
 - Every scenario starts at its declared population regardless of prior UI state.
-- Cancel and complete restore the same settings and plugin state.
+- Cancel and complete restore the same exact world, force, shader, and random-source state.
 - Ramp progression and its one-second failure window are based on simulated emission and elapsed milliseconds, not rendered-frame count.
 - A run with zero measured frames fails visibly instead of being stored as a valid result.
-- Import validates schema version and nested fields.
+- Import validates schema version, fingerprint integrity, and nested JSON fields before saving any result.
 - Incompatible runs are not silently compared.
 - Exported JSON can be imported and round-tripped without information loss.

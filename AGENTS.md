@@ -66,9 +66,9 @@ Preserve these unless a task explicitly changes them and updates the relevant AD
 
 Do not accidentally encode these as desired behavior:
 
-- Benchmark runs reset the exact starting population, but do not record a complete run manifest or restore the exact pre-run particle state.
+- Benchmark runs record a versioned workload manifest, reject incompatible comparisons/imports, and restore exact pre-run world state. The manifest currently uses schema version 1 for built-in plugin snapshots; self-describing plugin metadata is Phase 4 work.
 - Interactive clock overload diagnostics exist in code but are not yet exposed in the UI.
-- WebGL capability fallback, a shared background/device-pixel-ratio policy, a visible particle cap, normalized opaque particle colors, Canvas2D recovery from context loss, and deterministic parity fixtures now exist. Benchmark-manifest capability reporting remains incomplete.
+- WebGL capability fallback, a shared background/device-pixel-ratio policy, a visible particle cap, normalized opaque particle colors, Canvas2D recovery from context loss, and deterministic parity fixtures now exist.
 - “Radial” force currently uses the swarm centroid and returns one uniform force vector for the whole frame.
 - Plugin state is registered, but plugin UI and WebGL shader wiring are still manually centralized.
 

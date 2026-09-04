@@ -5,6 +5,7 @@ import { BenchmarkComparison } from './BenchmarkComparison';
 import { BenchmarkRunner } from './BenchmarkRunner';
 import { BenchmarkStorage } from './BenchmarkStorage';
 import { BenchmarkPaneContainer, BenchmarkUI } from './BenchmarkUI';
+import { BenchmarkRuntimeContext } from './types';
 
 export class BenchmarkModule {
   private runner: BenchmarkRunner;
@@ -13,9 +14,14 @@ export class BenchmarkModule {
   private ui: BenchmarkUI;
   private world: World;
 
-  constructor(world: World, forceRegistry?: ForceRegistry, shaderRegistry?: ShaderRegistry) {
+  constructor(
+    world: World,
+    forceRegistry?: ForceRegistry,
+    shaderRegistry?: ShaderRegistry,
+    getRuntimeContext?: () => BenchmarkRuntimeContext,
+  ) {
     this.world = world;
-    this.runner = new BenchmarkRunner(forceRegistry, shaderRegistry);
+    this.runner = new BenchmarkRunner(forceRegistry, shaderRegistry, getRuntimeContext);
     this.storage = new BenchmarkStorage();
     this.comparison = new BenchmarkComparison();
     this.ui = new BenchmarkUI(this.runner, this.storage, this.world);
@@ -60,5 +66,12 @@ export { BenchmarkRunner } from './BenchmarkRunner';
 export { BenchmarkStorage } from './BenchmarkStorage';
 export { BenchmarkComparison } from './BenchmarkComparison';
 export { MetricsCollector } from './MetricsCollector';
+export {
+  BenchmarkCompatibilityError,
+  BenchmarkManifestValidationError,
+  getManifestDifferences,
+  withCompatibilityFingerprint,
+  validateBenchmarkResult,
+} from './BenchmarkManifest';
 export { SCENARIOS, getScenarioList, getScenarioById } from './BenchmarkScenario';
 export * from './types';

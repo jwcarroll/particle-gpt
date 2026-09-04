@@ -21,7 +21,7 @@ This directory is the progressive-discovery entrypoint for humans and LLM agents
 3. The improvement specification describes **planned outcomes and sequencing**.
 4. Supporting Markdown explains context and working practice.
 
-ADR-0001 and ADR-0002 are accepted and partially or fully implemented. Other proposed ADRs are guidance for implementation and review, but must not be described as completed behavior.
+ADR-0001, ADR-0002, and ADR-0005 are accepted and partially or fully implemented. Other proposed ADRs are guidance for implementation and review, but must not be described as completed behavior.
 
 ## Documentation maintenance
 

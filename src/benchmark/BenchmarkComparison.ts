@@ -1,7 +1,9 @@
 import { BenchmarkResult, ComparisonResult, PercentageChange } from './types';
+import { ensureComparable, getManifestDifferences } from './BenchmarkManifest';
 
 export class BenchmarkComparison {
   compare(baseline: BenchmarkResult, current: BenchmarkResult): ComparisonResult {
+    ensureComparable(baseline, current);
     const changes = {
       avgFps: this.calculateChange(
         baseline.stats.avgFps,
@@ -37,6 +39,7 @@ export class BenchmarkComparison {
       current,
       changes,
       verdict,
+      differingFields: getManifestDifferences(baseline.manifest, current.manifest),
     };
   }
 

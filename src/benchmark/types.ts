@@ -28,6 +28,7 @@ export interface BenchmarkStats {
 
 export interface BenchmarkScenario {
   id: string;
+  version: number;
   name: string;
   description: string;
   duration: number; // Duration in seconds
@@ -58,6 +59,77 @@ export interface EnvironmentInfo {
   timestamp: string;
 }
 
+export const BENCHMARK_MANIFEST_VERSION = 1;
+
+export interface BenchmarkSurfaceManifest {
+  logicalWidth: number;
+  logicalHeight: number;
+  backingWidth: number;
+  backingHeight: number;
+  devicePixelRatio: number;
+  backgroundColor: string;
+}
+
+export interface BenchmarkClockManifest {
+  fixedStepSeconds: number;
+  maxFrameDeltaSeconds: number;
+  maxStepsPerCallback: number;
+  overloadThresholdSeconds: number;
+}
+
+export interface BenchmarkPluginManifest {
+  schemaVersion: number;
+  state: Record<string, unknown>;
+}
+
+export interface BenchmarkRunManifest {
+  schemaVersion: typeof BENCHMARK_MANIFEST_VERSION;
+  scenario: BenchmarkScenario;
+  renderer: {
+    id: string;
+    capability: 'available' | 'unavailable' | 'unprobed' | 'not-applicable';
+  };
+  surface: BenchmarkSurfaceManifest;
+  clock: BenchmarkClockManifest;
+  pixelsPerMeter: number;
+  world: {
+    initialParticleCount: number;
+    maxParticleCount: number;
+    enableParticleCollision: boolean;
+    emissionRate: number;
+    elasticity: number;
+    particleRadius: { min: number; max: number };
+    particleVelocity: { min: number; max: number };
+    particleLifeSpan: { min: number; max: number };
+    startingAngle: { min: number; max: number };
+    fillStyle: string;
+    seed: number;
+  };
+  forces: Record<string, BenchmarkPluginManifest>;
+  effects: Record<string, BenchmarkPluginManifest>;
+  thresholds: {
+    targetFps: number;
+    sustainedDropMilliseconds: number;
+    frameDropMilliseconds: number;
+  };
+  quality: {
+    sampleCount: number;
+  };
+  build: {
+    appVersion: string;
+    revision: string;
+  };
+  compatibilityFingerprint: string;
+}
+
+export interface BenchmarkRuntimeContext {
+  renderer: BenchmarkRunManifest['renderer'];
+  surface: BenchmarkSurfaceManifest;
+  clock: BenchmarkClockManifest;
+  pixelsPerMeter: number;
+  build: BenchmarkRunManifest['build'];
+}
+
 export interface BenchmarkResult {
   id: string;
   timestamp: string;
@@ -65,6 +137,7 @@ export interface BenchmarkResult {
   scenario: BenchmarkScenario;
   stats: BenchmarkStats;
   environment: EnvironmentInfo;
+  manifest: BenchmarkRunManifest;
 }
 
 export interface ComparisonResult {
@@ -78,6 +151,7 @@ export interface ComparisonResult {
     avgRenderTime: PercentageChange;
   };
   verdict: 'improved' | 'regressed' | 'unchanged';
+  differingFields: string[];
 }
 
 export interface PercentageChange {

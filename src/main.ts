@@ -1,4 +1,5 @@
 import './style.css';
+import packageMetadata from '../package.json';
 import { World } from './simulator';
 import { BladeApi, Pane } from 'tweakpane';
 import * as EssentialsPlugin from '@tweakpane/plugin-essentials';
@@ -9,7 +10,11 @@ import {
   RendererType,
   WebGLCapabilityStatus,
 } from './renderers/RendererManager';
-import { createRenderSurfaceConfig } from './renderers/RenderSurface';
+import {
+  createRenderSurfaceConfig,
+  getBackingHeight,
+  getBackingWidth,
+} from './renderers/RenderSurface';
 import { BenchmarkModule } from './benchmark';
 import { ForceRegistry, GravityForcePlugin, RadialForcePlugin, WindForcePlugin } from './forces';
 import {
@@ -99,7 +104,36 @@ if (!canvas) {
     fillStyle: (random) => `hsl(${random() * 360}, 100%, 50%)`,
   });
 
-  const benchmark = new BenchmarkModule(world, forceRegistry, shaderRegistry);
+  const simulationClock = new SimulationClock();
+  const benchmark = new BenchmarkModule(world, forceRegistry, shaderRegistry, () => {
+    const surface = getRenderSurface();
+    const webglCapability = rendererManager.getWebGLCapabilityStatus();
+    return {
+      renderer: {
+        id: rendererState.current,
+        capability: rendererState.current === 'WebGL' ? webglCapability.state : 'not-applicable',
+      },
+      surface: {
+        logicalWidth: surface.logicalWidth,
+        logicalHeight: surface.logicalHeight,
+        backingWidth: getBackingWidth(surface),
+        backingHeight: getBackingHeight(surface),
+        devicePixelRatio: surface.devicePixelRatio,
+        backgroundColor: surface.backgroundColor,
+      },
+      clock: {
+        fixedStepSeconds: simulationClock.fixedStepSeconds,
+        maxFrameDeltaSeconds: simulationClock.maxFrameDeltaSeconds,
+        maxStepsPerCallback: simulationClock.maxStepsPerCallback,
+        overloadThresholdSeconds: simulationClock.overloadThresholdSeconds,
+      },
+      pixelsPerMeter: PIXELS_PER_METER,
+      build: {
+        appVersion: packageMetadata.version,
+        revision: import.meta.env.VITE_GIT_SHA ?? 'development',
+      },
+    };
+  });
   const paneRefs = setupTweakPane(
     world,
     forceRegistry,
@@ -144,8 +178,6 @@ if (!canvas) {
       centerY: Math.min(radialState.centerY, window.innerHeight),
     });
   });
-
-  const simulationClock = new SimulationClock();
 
   document.addEventListener('visibilitychange', () => {
     if (document.visibilityState === 'hidden') {

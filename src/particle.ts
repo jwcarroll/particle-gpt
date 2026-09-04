@@ -1,6 +1,19 @@
 import { Vector } from './vector';
 import { parseOpaqueColor, RgbColor } from './colors';
 
+export interface ParticleSnapshot {
+  x: number;
+  y: number;
+  previousX: number;
+  previousY: number;
+  velocityX: number;
+  velocityY: number;
+  radius: number;
+  fillStyle: string;
+  maxLifeSpan: number | null;
+  timeAlive: number;
+}
+
 export class Particle {
   x: number;
   y: number;
@@ -39,6 +52,35 @@ export class Particle {
 
   public get timeAlive() {
     return this._timeAlive;
+  }
+
+  snapshot(): ParticleSnapshot {
+    return {
+      x: this.x,
+      y: this.y,
+      previousX: this.previousX,
+      previousY: this.previousY,
+      velocityX: this.velocity.x,
+      velocityY: this.velocity.y,
+      radius: this.radius,
+      fillStyle: this.fillStyle,
+      maxLifeSpan: this.maxLifeSpan,
+      timeAlive: this._timeAlive,
+    };
+  }
+
+  restoreSnapshot(snapshot: ParticleSnapshot): void {
+    this.x = snapshot.x;
+    this.y = snapshot.y;
+    this.previousX = snapshot.previousX;
+    this.previousY = snapshot.previousY;
+    this.velocity.x = snapshot.velocityX;
+    this.velocity.y = snapshot.velocityY;
+    this.radius = snapshot.radius;
+    this.fillStyle = snapshot.fillStyle;
+    this.color = parseOpaqueColor(snapshot.fillStyle);
+    this.maxLifeSpan = snapshot.maxLifeSpan;
+    this._timeAlive = snapshot.timeAlive;
   }
 
   update(dt: number) {

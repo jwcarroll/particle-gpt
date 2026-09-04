@@ -1,6 +1,6 @@
 # ADR-0005: Versioned benchmark run manifest
 
-- Status: Proposed
+- Status: Accepted
 - Date: 2026-09-04
 
 ## Context

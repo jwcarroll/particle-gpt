@@ -17,7 +17,7 @@ ADRs record durable architectural direction. They do not prove that the decision
 | [0002](0002-explicit-particle-population-lifecycle.md) | Accepted | Make population reset, target, and emission semantics explicit                                 |
 | [0003](0003-renderer-capabilities-and-parity.md)       | Proposed | Negotiate renderer capabilities and define visual parity                                       |
 | [0004](0004-self-describing-plugin-contracts.md)       | Proposed | Make force and effect plugins self-describing and versioned                                    |
-| [0005](0005-versioned-benchmark-run-manifest.md)       | Proposed | Store a versioned manifest with every benchmark result                                         |
+| [0005](0005-versioned-benchmark-run-manifest.md)       | Accepted | Store a versioned manifest with every benchmark result                                         |
 
 ## Creating an ADR
 

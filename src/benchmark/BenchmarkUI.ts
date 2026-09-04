@@ -5,6 +5,7 @@ import { BenchmarkRunner } from './BenchmarkRunner';
 import { getScenarioList, SCENARIOS } from './BenchmarkScenario';
 import { BenchmarkStorage } from './BenchmarkStorage';
 import { BenchmarkProgress, BenchmarkResult } from './types';
+import { BenchmarkCompatibilityError } from './BenchmarkManifest';
 
 interface UIState {
   scenario: string;
@@ -262,12 +263,18 @@ export class BenchmarkUI {
       return;
     }
 
-    const comparison = this.comparison.compare(baseline, this.lastResult);
-    const formatted = this.comparison.formatComparison(comparison);
-
-    // Display in console and alert
-    console.log(formatted);
-    alert(formatted);
+    try {
+      const comparison = this.comparison.compare(baseline, this.lastResult);
+      const formatted = this.comparison.formatComparison(comparison);
+      console.log(formatted);
+      alert(formatted);
+    } catch (error) {
+      if (error instanceof BenchmarkCompatibilityError) {
+        alert(`Benchmarks are not comparable:\n${error.differingFields.join('\n')}`);
+        return;
+      }
+      throw error;
+    }
   }
 
   private async importResults(): Promise<void> {

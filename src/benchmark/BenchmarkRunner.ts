@@ -1,15 +1,17 @@
-import { World, WorldSettings } from '../simulator';
+import { World, WorldStateSnapshot } from '../simulator';
 import { ForceRegistry } from '../forces';
 import { ShaderRegistry } from '../shaders';
-import { RandomSource } from '../random';
 import { MetricsCollector } from './MetricsCollector';
 import {
   BenchmarkProgress,
   BenchmarkResult,
+  BenchmarkRunManifest,
+  BenchmarkRuntimeContext,
   BenchmarkScenario,
   BenchmarkState,
   EnvironmentInfo,
 } from './types';
+import { withCompatibilityFingerprint } from './BenchmarkManifest';
 
 const FPS_THRESHOLD = 58; // Consider "below 60fps" with small margin
 const SUSTAINED_DROP_MILLISECONDS = 1_000;
@@ -22,11 +24,10 @@ export class BenchmarkRunner {
   private startTime = 0;
   private warmupEndTime = 0;
   private endTime = 0;
-  private originalSettings: WorldSettings | null = null;
+  private originalWorldState: WorldStateSnapshot | null = null;
   private originalForceSnapshot: Record<string, unknown> | null = null;
   private originalShaderSnapshot: Record<string, unknown> | null = null;
-  private originalRandomSource: RandomSource | null = null;
-  private originalParticleCount = 0;
+  private manifest: BenchmarkRunManifest | null = null;
   private onProgress: ((progress: BenchmarkProgress) => void) | null = null;
   private onComplete: ((result: BenchmarkResult) => void) | null = null;
   private onInvalid: ((reason: string) => void) | null = null;
@@ -38,7 +39,11 @@ export class BenchmarkRunner {
   private belowFpsSinceMilliseconds: number | null = null;
   private breakPointParticles: number | null = null;
 
-  constructor(forceRegistry?: ForceRegistry, shaderRegistry?: ShaderRegistry) {
+  constructor(
+    forceRegistry?: ForceRegistry,
+    shaderRegistry?: ShaderRegistry,
+    private readonly getRuntimeContext: () => BenchmarkRuntimeContext = defaultRuntimeContext,
+  ) {
     this.collector = new MetricsCollector();
     this.forceRegistry = forceRegistry || null;
     this.shaderRegistry = shaderRegistry || null;
@@ -72,11 +77,9 @@ export class BenchmarkRunner {
     this.onInvalid = callbacks.onInvalid || null;
 
     // Save original settings
-    this.originalSettings = world.getSettings();
+    this.originalWorldState = world.snapshotState();
     this.originalForceSnapshot = this.forceRegistry ? this.forceRegistry.snapshot() : null;
     this.originalShaderSnapshot = this.shaderRegistry ? this.shaderRegistry.snapshot() : null;
-    this.originalRandomSource = world.getRandomSource();
-    this.originalParticleCount = world.particleCount;
 
     // Apply scenario settings
     world.updateSettings({
@@ -90,6 +93,7 @@ export class BenchmarkRunner {
     world.resetPopulation(initialParticleCount, { seed: scenario.settings.seed });
     this.applyForcePreset(scenario);
     this.applyShaderPreset(scenario);
+    this.manifest = this.createManifest(world, initialParticleCount);
 
     // Set timing
     const now = performance.now();
@@ -180,15 +184,16 @@ export class BenchmarkRunner {
 
   private complete(world: World, breakPoint?: number): void {
     this.collector.stop();
-    this.state = 'complete';
-
     this.restoreBenchmarkState(world);
-
     const result = this.generateResult(breakPoint);
-
-    if (this.onComplete && result) {
-      this.onComplete(result);
+    if (!result) {
+      this.state = 'invalid';
+      this.onInvalid?.('benchmark ended without measured frames');
+      return;
     }
+
+    this.state = 'complete';
+    this.onComplete?.(result);
 
     // Reset to idle after a short delay
     setTimeout(() => {
@@ -247,20 +252,11 @@ export class BenchmarkRunner {
   }
 
   private restoreWorldState(world: World): void {
-    if (!this.originalSettings) {
+    if (!this.originalWorldState) {
       return;
     }
-
-    world.updateSettings(this.originalSettings);
-    this.originalSettings = null;
-
-    if (this.originalRandomSource) {
-      world.setRandomSource(this.originalRandomSource);
-      this.originalRandomSource = null;
-    }
-
-    world.resetPopulation(this.originalParticleCount);
-    this.originalParticleCount = 0;
+    world.restoreState(this.originalWorldState);
+    this.originalWorldState = null;
   }
 
   private applyShaderPreset(scenario: BenchmarkScenario): void {
@@ -286,7 +282,7 @@ export class BenchmarkRunner {
   }
 
   private generateResult(breakPoint?: number): BenchmarkResult | null {
-    if (!this.scenario) return null;
+    if (!this.scenario || !this.manifest || this.collector.getFrameCount() === 0) return null;
 
     const stats = this.collector.calculateStats();
 
@@ -297,13 +293,74 @@ export class BenchmarkRunner {
 
     const environment = this.getEnvironmentInfo();
 
+    const manifest = withCompatibilityFingerprint({
+      ...this.manifest,
+      quality: { sampleCount: this.collector.getFrameCount() },
+    });
+
     return {
       id: this.generateId(),
       timestamp: new Date().toISOString(),
       scenario: this.scenario,
       stats,
       environment,
+      manifest,
     };
+  }
+
+  private createManifest(world: World, initialParticleCount: number): BenchmarkRunManifest {
+    if (!this.scenario) {
+      throw new Error('Cannot create a benchmark manifest without a scenario.');
+    }
+
+    const settings = world.getSettings();
+    const runtime = this.getRuntimeContext();
+    const manifest = {
+      schemaVersion: 1 as const,
+      scenario: clone(this.scenario),
+      renderer: clone(runtime.renderer),
+      surface: clone(runtime.surface),
+      clock: clone(runtime.clock),
+      pixelsPerMeter: runtime.pixelsPerMeter,
+      world: {
+        initialParticleCount,
+        maxParticleCount: settings.maxParticleCount,
+        enableParticleCollision: settings.enableParticleCollision,
+        emissionRate: settings.emissionRate,
+        elasticity: settings.elasticity,
+        particleRadius: { min: settings.minParticleRadius, max: settings.maxParticleRadius },
+        particleVelocity: { min: settings.minParticleVelocity, max: settings.maxParticleVelocity },
+        particleLifeSpan: { min: settings.minParticleLifeSpan, max: settings.maxParticleLifeSpan },
+        startingAngle: { min: settings.minStartingAngle, max: settings.maxStartingAngle },
+        fillStyle: typeof settings.fillStyle === 'string' ? settings.fillStyle : 'random-source',
+        seed: this.scenario.settings.seed,
+      },
+      forces: this.snapshotPlugins(this.forceRegistry),
+      effects: this.snapshotPlugins(this.shaderRegistry),
+      thresholds: {
+        targetFps: FPS_THRESHOLD,
+        sustainedDropMilliseconds: SUSTAINED_DROP_MILLISECONDS,
+        frameDropMilliseconds: 20,
+      },
+      quality: { sampleCount: 0 },
+      build: clone(runtime.build),
+    };
+    return withCompatibilityFingerprint(manifest);
+  }
+
+  private snapshotPlugins(
+    registry: ForceRegistry | ShaderRegistry | null,
+  ): BenchmarkRunManifest['forces'] {
+    if (!registry) return {};
+    return Object.fromEntries(
+      registry.list().map((plugin) => [
+        plugin.id,
+        {
+          schemaVersion: 1,
+          state: clone(plugin.getState()) as unknown as Record<string, unknown>,
+        },
+      ]),
+    );
   }
 
   private getEnvironmentInfo(): EnvironmentInfo {
@@ -345,4 +402,30 @@ export class BenchmarkRunner {
       currentFps: this.collector.getRollingFps(30),
     });
   }
+}
+
+function clone<T>(value: T): T {
+  return JSON.parse(JSON.stringify(value)) as T;
+}
+
+function defaultRuntimeContext(): BenchmarkRuntimeContext {
+  return {
+    renderer: { id: 'unknown', capability: 'not-applicable' },
+    surface: {
+      logicalWidth: 0,
+      logicalHeight: 0,
+      backingWidth: 0,
+      backingHeight: 0,
+      devicePixelRatio: 1,
+      backgroundColor: 'unknown',
+    },
+    clock: {
+      fixedStepSeconds: 1 / 60,
+      maxFrameDeltaSeconds: 0.1,
+      maxStepsPerCallback: 8,
+      overloadThresholdSeconds: 0.5,
+    },
+    pixelsPerMeter: 100,
+    build: { appVersion: 'unknown', revision: 'unknown' },
+  };
 }
