@@ -2,6 +2,7 @@ import { ShaderRegistry } from '../shaders';
 import { Canvas2DRenderer } from './Canvas2DRenderer';
 import { DirectCanvas2DRenderer } from './DirectCanvas2DRenderer';
 import { ParticleRenderer } from './ParticleRenderer';
+import { RenderSurfaceConfig } from './RenderSurface';
 import { WebGLRenderer } from './WebGLRenderer';
 
 export type RendererType = 'DoubleBuffered' | 'Direct' | 'WebGL';
@@ -36,8 +37,7 @@ export class RendererManager {
   ) => WebGLRenderer;
   private webglRenderer?: WebGLRenderer;
   private webglFailureReason?: string;
-  private width = 0;
-  private height = 0;
+  private surface?: RenderSurfaceConfig;
 
   public active: RendererType = 'DoubleBuffered';
 
@@ -74,10 +74,9 @@ export class RendererManager {
     return { state: 'unprobed' };
   }
 
-  initialize(width: number, height: number): void {
-    this.width = width;
-    this.height = height;
-    Object.values(this.renderers).forEach((renderer) => renderer.initialize(width, height));
+  initialize(surface: RenderSurfaceConfig): void {
+    this.surface = surface;
+    Object.values(this.renderers).forEach((renderer) => renderer.initialize(surface));
   }
 
   select(type: RendererType): RendererSelection {
@@ -97,11 +96,10 @@ export class RendererManager {
     return { active: this.active, changed };
   }
 
-  resize(width: number, height: number): void {
-    this.width = width;
-    this.height = height;
-    Object.values(this.renderers).forEach((renderer) => renderer.resize(width, height));
-    this.webglRenderer?.resize(width, height);
+  resize(surface: RenderSurfaceConfig): void {
+    this.surface = surface;
+    Object.values(this.renderers).forEach((renderer) => renderer.resize(surface));
+    this.webglRenderer?.resize(surface);
   }
 
   dispose(): void {
@@ -120,7 +118,10 @@ export class RendererManager {
 
     try {
       const renderer = this.createWebGL(this.webglCanvas, this.shaderRegistry);
-      renderer.initialize(this.width, this.height);
+      if (!this.surface) {
+        throw new Error('RendererManager must be initialized before selecting WebGL');
+      }
+      renderer.initialize(this.surface);
       this.webglRenderer = renderer;
       return renderer;
     } catch (error) {

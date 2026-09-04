@@ -1,6 +1,7 @@
 // src/renderers/DirectCanvas2DRenderer.ts
 import { ParticleRenderer } from './ParticleRenderer';
 import { Particle } from '../particle';
+import { getBackingHeight, getBackingWidth, RenderSurfaceConfig } from './RenderSurface';
 
 /**
  * Direct renderer without double-buffering.
@@ -8,6 +9,7 @@ import { Particle } from '../particle';
  */
 export class DirectCanvas2DRenderer implements ParticleRenderer {
   private ctx: CanvasRenderingContext2D;
+  private surface!: RenderSurfaceConfig;
 
   constructor(private canvas: HTMLCanvasElement) {
     const ctx = canvas.getContext('2d');
@@ -15,13 +17,17 @@ export class DirectCanvas2DRenderer implements ParticleRenderer {
     this.ctx = ctx;
   }
 
-  initialize(width: number, height: number): void {
-    this.canvas.width = width;
-    this.canvas.height = height;
+  initialize(surface: RenderSurfaceConfig): void {
+    this.surface = surface;
+    this.canvas.width = getBackingWidth(surface);
+    this.canvas.height = getBackingHeight(surface);
+    this.ctx.setTransform(surface.devicePixelRatio, 0, 0, surface.devicePixelRatio, 0, 0);
   }
 
   render(particles: Particle[], interpolationAlpha: number = 1): void {
-    this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+    this.ctx.globalAlpha = 1;
+    this.ctx.fillStyle = this.surface.backgroundColor;
+    this.ctx.fillRect(0, 0, this.surface.logicalWidth, this.surface.logicalHeight);
 
     // Group by fillStyle for batching (same as original)
     const byColor = new Map<string, Particle[]>();
@@ -58,9 +64,8 @@ export class DirectCanvas2DRenderer implements ParticleRenderer {
     this.ctx.globalAlpha = 1.0;
   }
 
-  resize(width: number, height: number): void {
-    this.canvas.width = width;
-    this.canvas.height = height;
+  resize(surface: RenderSurfaceConfig): void {
+    this.initialize(surface);
   }
 
   dispose(): void {}

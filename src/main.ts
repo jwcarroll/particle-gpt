@@ -9,6 +9,7 @@ import {
   RendererType,
   WebGLCapabilityStatus,
 } from './renderers/RendererManager';
+import { createRenderSurfaceConfig } from './renderers/RenderSurface';
 import { BenchmarkModule } from './benchmark';
 import { ForceRegistry, GravityForcePlugin, RadialForcePlugin, WindForcePlugin } from './forces';
 import {
@@ -115,11 +116,13 @@ if (!canvas) {
     () => rendererManager.getWebGLCapabilityStatus(),
   );
 
-  rendererManager.initialize(window.innerWidth, window.innerHeight);
+  const getRenderSurface = () =>
+    createRenderSurfaceConfig(window.innerWidth, window.innerHeight, window.devicePixelRatio);
+  rendererManager.initialize(getRenderSurface());
 
   // Handle window resize
   window.addEventListener('resize', () => {
-    rendererManager.resize(window.innerWidth, window.innerHeight);
+    rendererManager.resize(getRenderSurface());
     world.updateSettings({
       height: window.innerHeight,
       width: window.innerWidth,

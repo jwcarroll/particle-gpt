@@ -8,6 +8,7 @@ All notable changes to Particle GPT are recorded here. Releases follow Semantic 
 
 - ESLint and Prettier checks, a Node 24 support declaration, and GitHub Actions validation on pushes and pull requests.
 - Lazy WebGL renderer capability negotiation with Canvas2D fallback and a visible initialization status.
+- Shared opaque renderer background and device-pixel-ratio-aware backing buffers.
 
 ## [2.1.0] - 2026-09-04
 

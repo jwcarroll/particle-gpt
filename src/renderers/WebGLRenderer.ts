@@ -2,6 +2,7 @@
 import { ParticleRenderer } from './ParticleRenderer';
 import { Particle } from '../particle';
 import { ShaderRegistry } from '../shaders';
+import { getBackingHeight, getBackingWidth, RenderSurfaceConfig } from './RenderSurface';
 import { ColorShiftEffectPlugin } from '../shaders/effects/ColorShiftEffect';
 import { OutlineEffectPlugin } from '../shaders/effects/OutlineEffect';
 import { GlowEffectPlugin } from '../shaders/effects/GlowEffect';
@@ -214,6 +215,7 @@ export class WebGLRenderer implements ParticleRenderer {
   private colorCache = new Map<string, [number, number, number]>();
   private elapsedTime = 0;
   private compileStatus: 'OK' | 'Error' = 'OK';
+  private surface!: RenderSurfaceConfig;
 
   constructor(
     private canvas: HTMLCanvasElement,
@@ -407,11 +409,14 @@ export class WebGLRenderer implements ParticleRenderer {
     return [r, g, b];
   }
 
-  initialize(width: number, height: number): void {
-    this.canvas.width = width;
-    this.canvas.height = height;
-    this.gl.viewport(0, 0, width, height);
-    this.gl.uniform2f(this.resolutionLoc, width, height);
+  initialize(surface: RenderSurfaceConfig): void {
+    this.surface = surface;
+    const backingWidth = getBackingWidth(surface);
+    const backingHeight = getBackingHeight(surface);
+    this.canvas.width = backingWidth;
+    this.canvas.height = backingHeight;
+    this.gl.viewport(0, 0, backingWidth, backingHeight);
+    this.gl.uniform2f(this.resolutionLoc, surface.logicalWidth, surface.logicalHeight);
   }
 
   render(particles: Particle[], interpolationAlpha: number = 1): void {
@@ -439,7 +444,10 @@ export class WebGLRenderer implements ParticleRenderer {
     }
 
     // Clear
-    gl.clearColor(0, 0, 0, 1);
+    const [backgroundRed, backgroundGreen, backgroundBlue] = this.parseColor(
+      this.surface.backgroundColor,
+    );
+    gl.clearColor(backgroundRed, backgroundGreen, backgroundBlue, 1);
     gl.clear(gl.COLOR_BUFFER_BIT);
 
     if (count === 0) return;
@@ -588,12 +596,15 @@ export class WebGLRenderer implements ParticleRenderer {
     }
   }
 
-  resize(width: number, height: number): void {
-    this.canvas.width = width;
-    this.canvas.height = height;
-    this.gl.viewport(0, 0, width, height);
+  resize(surface: RenderSurfaceConfig): void {
+    this.surface = surface;
+    const backingWidth = getBackingWidth(surface);
+    const backingHeight = getBackingHeight(surface);
+    this.canvas.width = backingWidth;
+    this.canvas.height = backingHeight;
+    this.gl.viewport(0, 0, backingWidth, backingHeight);
     this.gl.useProgram(this.program);
-    this.gl.uniform2f(this.resolutionLoc, width, height);
+    this.gl.uniform2f(this.resolutionLoc, surface.logicalWidth, surface.logicalHeight);
   }
 
   dispose(): void {

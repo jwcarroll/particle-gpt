@@ -33,7 +33,8 @@ Introduce a `RendererManager` with capability negotiation and an explicit `Rende
 ## Implementation notes
 
 - Implemented in part: `RendererManager` now creates Canvas2D renderers at startup and defers WebGL construction until it is selected. A failed WebGL creation retains the current Canvas2D renderer, records the reason, and exposes it in the Rendering tab.
-- Deferred: shared surface configuration, high-DPI backing buffers, color normalization, visual-parity fixtures, capacity reporting, and WebGL context-loss recovery remain future work.
+- Implemented in part: `RenderSurfaceConfig` gives every renderer one logical size, device pixel ratio, and opaque background. DPR scales backing buffers and rendering transforms, while world coordinates remain logical pixels.
+- Deferred: color normalization, visual-parity fixtures, capacity reporting, and WebGL context-loss recovery remain future work.
 - Reset all mutable Canvas context state, including global alpha, every frame or use save/restore around rendering.
 - Avoid allocating or parsing color strings per particle per frame; normalize at particle initialization or palette change.
 - Report WebGL caps and the silent particle ceiling explicitly. Prefer a visible capacity warning over truncation.
