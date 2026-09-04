@@ -10,13 +10,37 @@ lerna-debug.log*
 node_modules
 dist
 dist-ssr
+.vite
+coverage
+test-results
+playwright-report
 *.local
+
+# Local configuration and credentials. Commit a deliberately scrubbed
+# .env.example when configuration documentation is needed.
+.env
+.env.*
+!.env.example
+.envrc
+.direnv/
+.npmrc
+.netrc
+
+# Private keys, certificates, and credential exports
+*.pem
+*.key
+*.p12
+*.pfx
+*.jks
+credentials/
+secrets/
 
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
 .idea
 .DS_Store
+Thumbs.db
 *.suo
 *.ntvs*
 *.njsproj
