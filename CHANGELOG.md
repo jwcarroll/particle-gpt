@@ -2,6 +2,18 @@
 
 All notable changes to Particle GPT are recorded here. Releases follow Semantic Versioning and commits follow Conventional Commits. Release Please maintains release entries from commits merged to `main`.
 
+## [3.0.0](https://github.com/jwcarroll/particle-gpt/compare/v2.2.0...v3.0.0) (2026-11-09)
+
+
+### ⚠ BREAKING CHANGES
+
+* **laboratory:** New benchmark results use manifest schema 2. Schema-1 results remain readable and exportable as legacy history but are no longer eligible for comparisons. Radial plugin schema 2 introduces explicit evaluation modes with migration preserving legacy centroid behavior.
+
+### Features
+
+* **benchmark:** add reproducible run manifests ([50498ff](https://github.com/jwcarroll/particle-gpt/commit/50498ff61b64d09653d003ae93891f304c92d032))
+* **laboratory:** add reproducible scenes and reliable benchmarks ([54a24fc](https://github.com/jwcarroll/particle-gpt/commit/54a24fcd759d2308b580fa4e13a622ff77209c94))
+
 ## [2.2.0](https://github.com/jwcarroll/particle-gpt/compare/v2.1.0...v2.2.0) (2026-09-04)
 
 
