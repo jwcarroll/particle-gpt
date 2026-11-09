@@ -2,12 +2,89 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Vite + TS</title>
+    <meta name="theme-color" content="#111820" />
+    <link rel="icon" href="/particle.svg" type="image/svg+xml" />
+    <title>Particle GPT — Field laboratory</title>
   </head>
   <body>
-    <div id="app"><canvas id="canvas"></canvas></div>
+    <div id="app">
+      <header>
+        <div class="identity">PARTICLE GPT <span>FIELD LABORATORY</span></div>
+        <output id="status">Initializing…</output
+        ><button id="inspector-toggle" aria-controls="inspector" aria-expanded="true">
+          Inspector
+        </button>
+      </header>
+      <main id="viewport" aria-label="Particle workspace">
+        <canvas id="canvas"></canvas><canvas id="webgl-canvas" hidden></canvas
+        ><canvas
+          id="overlay"
+          tabindex="0"
+          aria-label="Field placement canvas. Use the field menu and Add at center for keyboard placement."
+        ></canvas>
+      </main>
+      <aside id="inspector" aria-label="Scene inspector">
+        <button id="inspector-close">Close inspector</button>
+        <section class="scene-actions">
+          <label
+            >Preset<select id="preset" data-edit>
+              <option>Default</option>
+              <option>Low Gravity</option>
+              <option>Attractor</option>
+              <option>Vortex</option>
+            </select></label
+          >
+          <div class="button-row">
+            <button id="save" data-edit>Save preset</button
+            ><button id="load" data-edit>Load preset</button>
+          </div>
+          <div class="button-row">
+            <button id="import" data-edit>Import JSON</button
+            ><button id="export" data-edit>Export JSON</button>
+          </div>
+          <input id="scene-file" type="file" accept=".json" hidden /><button id="fit" data-edit>
+            Fit to window
+          </button>
+        </section>
+        <label class="field-select"
+          >Selected field<select id="field-list" data-edit>
+            <option value="">None</option>
+          </select></label
+        >
+        <div id="inspector-content"></div>
+        <p class="hint">
+          Space: play / pause · Period: step · R: reset<br />Fields: place, drag, or edit
+          coordinates.
+        </p>
+      </aside>
+      <footer>
+        <div class="transport">
+          <button id="play" data-edit>Pause</button><button id="step" data-edit>Step</button
+          ><button id="reset" data-edit>Reset</button
+          ><label
+            >Seed
+            <input id="seed" type="number" min="1" max="2147483647" value="1337" data-edit /></label
+          ><label class="tool-label"
+            >Tool
+            <select id="tool" data-edit>
+              <option value="select">Select</option>
+              <option value="attractor">Attractor</option>
+              <option value="repulsor">Repulsor</option>
+              <option value="vortex">Vortex</option>
+              <option value="emitter">Emitter</option>
+            </select></label
+          ><button id="add-field" data-edit>Add at center</button
+          ><button id="share" data-edit>Share</button><button id="capture" data-edit>PNG</button>
+        </div>
+        <div class="telemetry">
+          <output id="diagnostics"></output
+          ><output id="message" role="status" aria-live="polite"
+            >Choose a preset or place a field to begin.</output
+          >
+        </div>
+      </footer>
+    </div>
     <script type="module" src="/src/main.ts"></script>
   </body>
 </html>

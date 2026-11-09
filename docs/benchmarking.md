@@ -1,79 +1,27 @@
 # Benchmarking contract
 
-## Purpose
+## Lifecycle and workload
 
-The benchmark subsystem should answer whether a specific code or configuration change improves performance under a reproducible workload. It is not a general device score and must not compare unlike runs.
+Built-in scenarios are Standard (1,000), Stress (5,000), Collision (500), and Ramp (100 to 30,000), all seeded with 1337. Scenario definitions are version 2. Warmup is excluded from samples; every scenario's duration bounds measurement time after warmup. The ramp has one second warmup plus at most 60 seconds measurement and a one-second sustained drop window below 58 FPS. The 20 ms dropped-frame threshold remains a fixed diagnostic threshold.
 
-## Current scenarios
+Start captures exact world/particle/RNG, force/effect runtime, clock, pause, and presentation state. It resets seeded population, applies the force/effect preset, suppresses trails/arrows, and locks workload controls. Fields, emitters, palette, world distribution, and plugin settings remain part of the recorded workload. Thus emitter-limited populations may time out instead of reaching the ramp ceiling.
 
-| ID          | Intent                         | Nominal population | Collisions |  Seed |
-| ----------- | ------------------------------ | -----------------: | ---------- | ----: |
-| `standard`  | Baseline rendering/update load |              1,000 | Off        | 1,337 |
-| `stress`    | Higher particle count          |              5,000 | Off        | 1,337 |
-| `collision` | Dense collision workload       |                500 | On         | 1,337 |
-| `ramp`      | Find approximate 60 FPS limit  |       100 → 30,000 | Off        | 1,337 |
+Completion, cancellation, invalidation, preflight failure, and result-generation failure restore captured state. Clock restoration resets the wall-time anchor. Resize/DPR changes invalidate first, then reconcile current surface dimensions. WebGL context loss, hidden documents, clamped wall time, and sustained overload invalidate runs. Cancel is always available; duplicate starts are ignored.
 
-The current implementation applies gravity-only, disables all WebGL effects except age alpha, resets to the scenario's exact seeded starting population before warmup, and ramps at 3,000 particles per simulated second.
+Completed results distinguish ordinary completion, an observed FPS limit, and a population ceiling (displayed as “at least”). Timeout, cancelled, invalid, and zero-sample runs cannot become saved baselines. Starting a run clears stale last-result eligibility.
 
-## Current validity limits
+## Manifest schema 2 and history
 
-- The manifest records renderer identity/capability, surface dimensions and DPR, clock configuration, seeded workload, complete plugin snapshots, and build identity. Comparisons reject workload differences by default and list the differing fields.
-- The fixed 20 ms dropped-frame threshold does not yet adapt to the display refresh context.
-- Built-in plugin snapshots use manifest schema version 1 until Phase 4 makes plugin schemas self-describing. Unknown or malformed imported manifests are rejected rather than partially applied.
-- A local build without `VITE_GIT_SHA` records its revision as `development`; configure that build variable for commit-level benchmark provenance.
+New manifests include exact color configuration (solid, ordered uniformly sampled palette, or continuous hue), field/emitter instances, presentation settings, plugin schema/evaluation mode, renderer/surface/DPR, clock settings, seed/distribution, scenario definition, thresholds, sample quality, and build identity. Custom color callbacks without serializable policy fail benchmark preflight.
 
-An active run is invalidated and restored if the document becomes hidden, the clock clamps wall time, or sustained physics overload is detected. Invalidated runs are not returned as completed results.
+Compatibility uses canonical serialization and an FNV-1a fingerprint. Build version/revision and quality are excluded; workload changes are not. Comparison computes field differences and rejects incompatible manifests. Results remain diagnostic, not universal device scores. Renderer timing measures CPU submission rather than GPU completion.
 
-Benchmark results remain diagnostic measurements rather than universal device scores, but saved baselines now preserve their workload definition and cannot silently compare unlike runs.
+Schema-1 records remain unchanged, readable, deletable, and exportable as legacy history, but cannot serve as comparison baselines. Missing palette metadata is never invented. Unknown schemas, invalid nested values, unknown plugin versions/IDs, or fingerprint mismatches reject the entire import before storage changes. Mixed legacy/current exports round-trip. Save/import failures report “in memory only”; JSON export remains available.
 
-## Target lifecycle
+Browser storage key remains `benchmark_results`. History displays complete raw workload/results under expandable details, with per-record deletion. Local presets use a separate key.
 
-1. Capture the user's complete restorable world, force, shader, and random-source state.
-2. Resolve and validate a benchmark scenario.
-3. Create an immutable `BenchmarkRunManifest`.
-4. Reset the simulation using the scenario seed and exact starting population.
-5. Apply scenario force/effect/background/renderer settings.
-6. Warm up without recording samples.
-7. Record time-based samples and progress.
-8. Complete or cancel through the same cleanup path.
-9. Restore the user's state exactly, including particle positions, velocities, age, and interpolation state.
-10. Persist the result and manifest together.
+## Performance investigation
 
-## Required run manifest
+`npm run profile -- profile-name` builds the optimized test bundle and runs five matched Direct Canvas2D workloads: 5,000 seeded particles, 1280×720 logical surface, DPR 1, 120 warmup callbacks and 180 measured callbacks per run. Application animation is suspended during the profiling loop. The harness reports median update/render CPU durations and p95 callback intervals; it is deliberately separate from user-facing benchmark scoring. Evidence includes the workload manifest. Keep the test window foregrounded and avoid concurrent workloads.
 
-At minimum, persist:
-
-- schema version, result ID, timestamp, and user label;
-- app version plus Git commit/build identifier when available;
-- scenario ID and scenario definition version;
-- renderer ID and renderer capability/version information;
-- CSS viewport, backing-buffer dimensions, device pixel ratio, and detected refresh context;
-- user agent and hardware concurrency;
-- simulation clock configuration and pixels-per-meter scale;
-- exact initial population, particle distribution settings, collision settings, and random seed;
-- complete force and effect snapshots with plugin schema versions;
-- warmup duration, measurement duration, thresholds, and sample count.
-
-See [ADR-0005](adrs/0005-versioned-benchmark-run-manifest.md).
-
-## Comparison policy
-
-Runs are automatically comparable only when their compatibility fingerprints match. The fingerprint should cover every manifest field that materially changes workload or timing, excluding result ID, timestamp, label, and the code revision intentionally being compared.
-
-If fingerprints differ, the UI must:
-
-1. refuse the comparison by default;
-2. list the differing fields;
-3. permit an explicitly labeled exploratory comparison only if the product chooses to support it.
-
-Do not collapse multiple metrics into a verdict without showing the underlying values and sample quality. A practical first pass may retain the current 5% threshold, but it should include run-to-run variance before calling changes significant.
-
-## Acceptance checks
-
-- Every scenario starts at its declared population regardless of prior UI state.
-- Cancel and complete restore the same exact world, force, shader, and random-source state.
-- Ramp progression and its one-second failure window are based on simulated emission and elapsed milliseconds, not rendered-frame count.
-- A run with zero measured frames fails visibly instead of being stored as a valid result.
-- Import validates schema version, fingerprint integrity, and nested JSON fields before saving any result.
-- Incompatible runs are not silently compared.
-- Exported JSON can be imported and round-tripped without information loss.
+See `evidence/profile-before.json`, `evidence/profile-after.json`, and `implementation-status.md`. Do not infer FPS improvement from reduced CPU time when display cadence is unchanged. CI rendering is correctness evidence, not a hardware-performance comparison.

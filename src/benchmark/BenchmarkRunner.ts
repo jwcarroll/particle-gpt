@@ -11,7 +11,8 @@ import {
   BenchmarkState,
   EnvironmentInfo,
 } from './types';
-import { withCompatibilityFingerprint } from './BenchmarkManifest';
+import { validateColorConfig } from '../ColorConfig';
+import { validateScenario, withCompatibilityFingerprint } from './BenchmarkManifest';
 
 const FPS_THRESHOLD = 58; // Consider "below 60fps" with small margin
 const SUSTAINED_DROP_MILLISECONDS = 1_000;
@@ -43,6 +44,8 @@ export class BenchmarkRunner {
     forceRegistry?: ForceRegistry,
     shaderRegistry?: ShaderRegistry,
     private readonly getRuntimeContext: () => BenchmarkRuntimeContext = defaultRuntimeContext,
+    private readonly lifecycle: { begin(): void; end(): void } = { begin() {}, end() {} },
+    private readonly now: () => number = () => performance.now(),
   ) {
     this.collector = new MetricsCollector();
     this.forceRegistry = forceRegistry || null;
@@ -51,6 +54,10 @@ export class BenchmarkRunner {
 
   isRunning(): boolean {
     return this.state === 'warmup' || this.state === 'running';
+  }
+
+  getManifest(): BenchmarkRunManifest | null {
+    return this.manifest ? structuredClone(this.manifest) : null;
   }
 
   getState(): BenchmarkState {
@@ -71,7 +78,7 @@ export class BenchmarkRunner {
       return;
     }
 
-    this.scenario = scenario;
+    this.scenario = structuredClone(scenario);
     this.onProgress = callbacks.onProgress || null;
     this.onComplete = callbacks.onComplete || null;
     this.onInvalid = callbacks.onInvalid || null;
@@ -81,35 +88,46 @@ export class BenchmarkRunner {
     this.originalForceSnapshot = this.forceRegistry ? this.forceRegistry.snapshot() : null;
     this.originalShaderSnapshot = this.shaderRegistry ? this.shaderRegistry.snapshot() : null;
 
-    // Apply scenario settings
-    world.updateSettings({
-      maxParticleCount: scenario.settings.maxParticleCount,
-      enableParticleCollision: scenario.settings.enableParticleCollision,
-      emissionRate: BENCHMARK_EMISSION_RATE,
-    });
-    const initialParticleCount = scenario.settings.rampMode
-      ? (scenario.settings.rampStartCount ?? scenario.settings.maxParticleCount)
-      : scenario.settings.maxParticleCount;
-    world.resetPopulation(initialParticleCount, { seed: scenario.settings.seed });
-    this.applyForcePreset(scenario);
-    this.applyShaderPreset(scenario);
-    this.manifest = this.createManifest(world, initialParticleCount);
+    try {
+      validateScenario(scenario);
+      const colors = world.getColors();
+      if (!colors) throw new Error('Benchmark requires a serializable color configuration');
+      validateColorConfig(colors);
+      this.lifecycle.begin();
+      // Apply scenario settings
+      world.updateSettings({
+        maxParticleCount: scenario.settings.maxParticleCount,
+        enableParticleCollision: scenario.settings.enableParticleCollision,
+        emissionRate: BENCHMARK_EMISSION_RATE,
+      });
+      const initialParticleCount = scenario.settings.rampMode
+        ? (scenario.settings.rampStartCount ?? scenario.settings.maxParticleCount)
+        : scenario.settings.maxParticleCount;
+      world.resetPopulation(initialParticleCount, { seed: scenario.settings.seed });
+      this.applyForcePreset(scenario);
+      this.applyShaderPreset(scenario);
+      this.manifest = this.createManifest(world, initialParticleCount);
 
-    // Set timing
-    const now = performance.now();
-    this.startTime = now;
-    this.warmupEndTime = now + scenario.warmupDuration * 1000;
-    this.endTime = now + (scenario.warmupDuration + scenario.duration) * 1000;
+      // Set timing
+      const now = this.now();
+      this.startTime = now;
+      this.warmupEndTime = now + scenario.warmupDuration * 1000;
+      this.endTime = now + (scenario.warmupDuration + scenario.duration) * 1000;
 
-    // Start in warmup state
-    this.state = 'warmup';
-    this.collector.reset();
+      // Start in warmup state
+      this.state = 'warmup';
+      this.collector.reset();
 
-    // Reset ramp tracking
-    this.currentRampParticles =
-      scenario.settings.rampStartCount ?? scenario.settings.maxParticleCount;
-    this.belowFpsSinceMilliseconds = null;
-    this.breakPointParticles = null;
+      // Reset ramp tracking
+      this.currentRampParticles =
+        scenario.settings.rampStartCount ?? scenario.settings.maxParticleCount;
+      this.belowFpsSinceMilliseconds = null;
+      this.breakPointParticles = null;
+    } catch (error) {
+      this.state = 'invalid';
+      this.restoreBenchmarkState(world);
+      this.onInvalid?.(error instanceof Error ? error.message : String(error));
+    }
   }
 
   recordFrame(
@@ -123,7 +141,12 @@ export class BenchmarkRunner {
   ): void {
     if (!this.isRunning() || !this.scenario) return;
 
-    const now = performance.now();
+    const now = this.now();
+
+    if (this.scenario.settings.rampMode && now >= this.endTime) {
+      this.invalidate('Timed out: no FPS limit or population ceiling reached', world);
+      return;
+    }
 
     // Handle ramp mode - increase particles until FPS drops
     if (this.scenario.settings.rampMode && this.state === 'running') {
@@ -144,7 +167,7 @@ export class BenchmarkRunner {
           !this.breakPointParticles
         ) {
           this.breakPointParticles = this.currentRampParticles;
-          this.complete(world, this.breakPointParticles);
+          this.complete(world, this.breakPointParticles, 'fps-limit');
           return;
         }
       } else {
@@ -156,7 +179,7 @@ export class BenchmarkRunner {
       // If actual particles reached max and still above 60fps, we're done
       if (actualParticles >= endCount && this.collector.getFrameCount() > 60) {
         this.breakPointParticles = endCount; // Never dropped
-        this.complete(world, this.breakPointParticles);
+        this.complete(world, this.breakPointParticles, 'population-ceiling');
         return;
       }
     }
@@ -182,10 +205,23 @@ export class BenchmarkRunner {
     this.reportProgress(now, data.particleCount);
   }
 
-  private complete(world: World, breakPoint?: number): void {
+  private complete(
+    world: World,
+    breakPoint?: number,
+    outcome: 'completed' | 'fps-limit' | 'population-ceiling' = 'completed',
+  ): void {
     this.collector.stop();
-    this.restoreBenchmarkState(world);
-    const result = this.generateResult(breakPoint);
+    let result: BenchmarkResult | null;
+    try {
+      result = this.generateResult(breakPoint);
+      if (result) result.outcome = outcome;
+    } catch (error) {
+      this.state = 'invalid';
+      this.onInvalid?.(String(error));
+      return;
+    } finally {
+      this.restoreBenchmarkState(world);
+    }
     if (!result) {
       this.state = 'invalid';
       this.onInvalid?.('benchmark ended without measured frames');
@@ -194,11 +230,6 @@ export class BenchmarkRunner {
 
     this.state = 'complete';
     this.onComplete?.(result);
-
-    // Reset to idle after a short delay
-    setTimeout(() => {
-      this.state = 'idle';
-    }, 100);
   }
 
   stop(world: World): void {
@@ -222,14 +253,18 @@ export class BenchmarkRunner {
   }
 
   private restoreBenchmarkState(world: World): void {
-    this.restoreWorldState(world);
-    if (this.forceRegistry && this.originalForceSnapshot) {
-      this.forceRegistry.restore(this.originalForceSnapshot);
-      this.originalForceSnapshot = null;
-    }
-    if (this.shaderRegistry && this.originalShaderSnapshot) {
-      this.shaderRegistry.restore(this.originalShaderSnapshot);
-      this.originalShaderSnapshot = null;
+    try {
+      this.restoreWorldState(world);
+      if (this.forceRegistry && this.originalForceSnapshot) {
+        this.forceRegistry.restore(this.originalForceSnapshot);
+        this.originalForceSnapshot = null;
+      }
+      if (this.shaderRegistry && this.originalShaderSnapshot) {
+        this.shaderRegistry.restore(this.originalShaderSnapshot);
+        this.originalShaderSnapshot = null;
+      }
+    } finally {
+      this.lifecycle.end();
     }
   }
 
@@ -316,7 +351,7 @@ export class BenchmarkRunner {
     const settings = world.getSettings();
     const runtime = this.getRuntimeContext();
     const manifest = {
-      schemaVersion: 1 as const,
+      schemaVersion: 2 as const,
       scenario: clone(this.scenario),
       renderer: clone(runtime.renderer),
       surface: clone(runtime.surface),
@@ -332,7 +367,9 @@ export class BenchmarkRunner {
         particleVelocity: { min: settings.minParticleVelocity, max: settings.maxParticleVelocity },
         particleLifeSpan: { min: settings.minParticleLifeSpan, max: settings.maxParticleLifeSpan },
         startingAngle: { min: settings.minStartingAngle, max: settings.maxStartingAngle },
-        fillStyle: typeof settings.fillStyle === 'string' ? settings.fillStyle : 'random-source',
+        fillStyle: typeof settings.fillStyle === 'string' ? settings.fillStyle : 'configured',
+        colors: world.getColors()!,
+        fields: world.getFields(),
         seed: this.scenario.settings.seed,
       },
       forces: this.snapshotPlugins(this.forceRegistry),
@@ -342,6 +379,7 @@ export class BenchmarkRunner {
         sustainedDropMilliseconds: SUSTAINED_DROP_MILLISECONDS,
         frameDropMilliseconds: 20,
       },
+      presentation: { trails: false, arrows: false },
       quality: { sampleCount: 0 },
       build: clone(runtime.build),
     };
@@ -356,7 +394,9 @@ export class BenchmarkRunner {
       registry.list().map((plugin) => [
         plugin.id,
         {
-          schemaVersion: 1,
+          schemaVersion: registry.describe(plugin.id).schemaVersion,
+          evaluationMode:
+            (plugin.getState() as { evaluationMode?: string }).evaluationMode ?? 'uniform',
           state: clone(plugin.getState()) as unknown as Record<string, unknown>,
         },
       ]),

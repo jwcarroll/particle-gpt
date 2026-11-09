@@ -1,3 +1,8 @@
+import { validateColorConfig } from '../ColorConfig';
+import { validateFields } from '../Fields';
+import { createCatalog } from '../plugins/catalog';
+import { validatePluginState } from '../plugins/metadata';
+import { parseOpaqueColor } from '../colors';
 import {
   BENCHMARK_MANIFEST_VERSION,
   BenchmarkResult,
@@ -74,6 +79,10 @@ export function getManifestDifferences(
 }
 
 export function ensureComparable(baseline: BenchmarkResult, current: BenchmarkResult): void {
+  if (baseline.manifest.schemaVersion !== 2 || current.manifest.schemaVersion !== 2)
+    throw new BenchmarkCompatibilityError([
+      'legacy history: complete workload metadata unavailable',
+    ]);
   const differences = getManifestDifferences(baseline.manifest, current.manifest);
   if (differences.length > 0) {
     throw new BenchmarkCompatibilityError(differences);
@@ -89,6 +98,23 @@ export function validateBenchmarkResult(value: unknown): asserts value is Benchm
   validateStats(result.stats);
   validateEnvironment(result.environment);
   validateManifest(result.manifest);
+  const manifest = result.manifest as BenchmarkRunManifest;
+  if (manifest.schemaVersion === 2) {
+    if (stableSerialize(result.scenario) !== stableSerialize(manifest.scenario))
+      throw new BenchmarkManifestValidationError('Result scenario differs from manifest');
+    if (
+      !['completed', 'fps-limit', 'population-ceiling', undefined].includes(
+        result.outcome as string | undefined,
+      )
+    )
+      throw new BenchmarkManifestValidationError('Invalid result outcome');
+    const stats = result.stats as Record<string, unknown>;
+    if (stats.totalFrames !== manifest.quality.sampleCount)
+      throw new BenchmarkManifestValidationError('Sample count differs from result');
+    for (const value of Object.values(stats))
+      if ((value as number) < 0)
+        throw new BenchmarkManifestValidationError('Negative result statistic');
+  }
 }
 
 function compatibilityProjection(
@@ -138,7 +164,7 @@ function findDifferences(
 
 function validateManifest(value: unknown): void {
   const manifest = expectRecord(value, 'manifest');
-  if (manifest.schemaVersion !== BENCHMARK_MANIFEST_VERSION) {
+  if (manifest.schemaVersion !== 1 && manifest.schemaVersion !== BENCHMARK_MANIFEST_VERSION) {
     throw new BenchmarkManifestValidationError(
       `Unsupported benchmark manifest schema version: ${String(manifest.schemaVersion)}`,
     );
@@ -159,6 +185,93 @@ function validateManifest(value: unknown): void {
   validateNumberRecord(manifest.clock, 'manifest.clock');
   expectFiniteNumber(manifest.pixelsPerMeter, 'manifest.pixelsPerMeter');
   validateWorld(manifest.world);
+  if (manifest.schemaVersion === 2) {
+    const world = expectRecord(manifest.world, 'world');
+    const renderer = expectRecord(manifest.renderer, 'renderer');
+    expectString(renderer.id, 'renderer.id');
+    if (
+      !['available', 'unavailable', 'unprobed', 'not-applicable'].includes(
+        String(renderer.capability),
+      )
+    )
+      throw new BenchmarkManifestValidationError('Invalid capability');
+    const build = expectRecord(manifest.build, 'build');
+    expectString(build.appVersion, 'build.appVersion');
+    expectString(build.revision, 'build.revision');
+    for (const key of [
+      'logicalWidth',
+      'logicalHeight',
+      'backingWidth',
+      'backingHeight',
+      'devicePixelRatio',
+    ])
+      if ((surface[key] as number) <= 0)
+        throw new BenchmarkManifestValidationError('Surface must be positive');
+    parseOpaqueColor(surface.backgroundColor as string);
+    if (
+      (world.emissionRate as number) < 0 ||
+      (world.emissionRate as number) > 1000000 ||
+      (world.elasticity as number) < 0 ||
+      (world.elasticity as number) > 1 ||
+      !Number.isInteger(world.seed)
+    )
+      throw new BenchmarkManifestValidationError('Invalid world workload');
+    const thresholds = expectRecord(manifest.thresholds, 'thresholds');
+    for (const key of ['targetFps', 'sustainedDropMilliseconds', 'frameDropMilliseconds']) {
+      expectFiniteNumber(thresholds[key], key);
+      if ((thresholds[key] as number) <= 0)
+        throw new BenchmarkManifestValidationError('Invalid threshold');
+    }
+    validateColorConfig(world.colors);
+    validateFields(world.fields);
+    const presentation = expectRecord(manifest.presentation, 'presentation');
+    if (typeof presentation.trails !== 'boolean' || typeof presentation.arrows !== 'boolean')
+      throw new BenchmarkManifestValidationError('Invalid presentation settings');
+    const { forces, effects } = createCatalog();
+    for (const [entries, registry] of [
+      [manifest.forces, forces],
+      [manifest.effects, effects],
+    ] as const) {
+      for (const [id, entry] of Object.entries(expectRecord(entries, 'plugins'))) {
+        const plugin = expectRecord(entry, id);
+        const definition = registry.describe(id);
+        if (plugin.schemaVersion !== definition.schemaVersion)
+          throw new BenchmarkManifestValidationError('Unsupported plugin schema: ' + id);
+        if (!['uniform', 'perParticle'].includes(String(plugin.evaluationMode)))
+          throw new BenchmarkManifestValidationError('Missing evaluation mode: ' + id);
+        validatePluginState(definition, plugin.state);
+      }
+    }
+    const clock = expectRecord(manifest.clock, 'clock');
+    for (const key of [
+      'fixedStepSeconds',
+      'maxFrameDeltaSeconds',
+      'maxStepsPerCallback',
+      'overloadThresholdSeconds',
+    ]) {
+      expectFiniteNumber(clock[key], key);
+      if ((clock[key] as number) <= 0)
+        throw new BenchmarkManifestValidationError('Clock values must be positive');
+    }
+    for (const key of ['particleRadius', 'particleVelocity', 'particleLifeSpan', 'startingAngle']) {
+      const interval = expectRecord(world[key], key);
+      expectFiniteNumber(interval.min, key);
+      expectFiniteNumber(interval.max, key);
+      if ((interval.min as number) < 0 || (interval.min as number) > (interval.max as number))
+        throw new BenchmarkManifestValidationError('Invalid interval: ' + key);
+    }
+    for (const key of ['initialParticleCount', 'maxParticleCount']) {
+      if (
+        !Number.isInteger(world[key]) ||
+        (world[key] as number) < 0 ||
+        (world[key] as number) > 50000
+      )
+        throw new BenchmarkManifestValidationError('Invalid population');
+    }
+    const quality = expectRecord(manifest.quality, 'quality');
+    if (!Number.isInteger(quality.sampleCount) || (quality.sampleCount as number) <= 0)
+      throw new BenchmarkManifestValidationError('Result must have measured samples');
+  }
   validatePluginRecord(manifest.forces, 'manifest.forces');
   validatePluginRecord(manifest.effects, 'manifest.effects');
   validateNumberRecord(manifest.thresholds, 'manifest.thresholds');
@@ -179,7 +292,7 @@ function validateManifest(value: unknown): void {
   }
 }
 
-function validateScenario(value: unknown): asserts value is BenchmarkScenario {
+export function validateScenario(value: unknown): asserts value is BenchmarkScenario {
   const scenario = expectRecord(value, 'scenario');
   expectString(scenario.id, 'scenario.id');
   expectFiniteNumber(scenario.version, 'scenario.version');
@@ -208,6 +321,28 @@ function validateScenario(value: unknown): asserts value is BenchmarkScenario {
   if (settings.rampMode !== undefined && typeof settings.rampMode !== 'boolean') {
     throw new BenchmarkManifestValidationError('scenario.settings.rampMode must be boolean');
   }
+  if (
+    (scenario.duration as number) < 0 ||
+    (scenario.warmupDuration as number) < 0 ||
+    !Number.isInteger(scenario.version) ||
+    (scenario.version as number) < 1 ||
+    !Number.isInteger(settings.maxParticleCount) ||
+    (settings.maxParticleCount as number) < 0 ||
+    (settings.maxParticleCount as number) > 50000 ||
+    !Number.isInteger(settings.seed)
+  )
+    throw new BenchmarkManifestValidationError('Scenario values out of range');
+  for (const key of ['rampStartCount', 'rampEndCount']) {
+    if (
+      settings[key] !== undefined &&
+      (!Number.isInteger(settings[key]) ||
+        (settings[key] as number) < 0 ||
+        (settings[key] as number) > 50000)
+    )
+      throw new BenchmarkManifestValidationError('Invalid ramp population');
+  }
+  if (settings.rampMode && (settings.rampEndCount as number) <= (settings.rampStartCount as number))
+    throw new BenchmarkManifestValidationError('Ramp end must exceed start');
 }
 
 function validateStats(value: unknown): void {

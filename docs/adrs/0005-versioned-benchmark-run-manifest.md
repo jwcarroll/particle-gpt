@@ -1,6 +1,6 @@
 # ADR-0005: Versioned benchmark run manifest
 
-- Status: Accepted
+- Status: Superseded in part by [ADR-0006](0006-complete-workloads-and-scene-configurations.md)
 - Date: 2026-09-04
 
 ## Context

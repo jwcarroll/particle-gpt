@@ -21,7 +21,7 @@ This directory is the progressive-discovery entrypoint for humans and LLM agents
 3. The improvement specification describes **planned outcomes and sequencing**.
 4. Supporting Markdown explains context and working practice.
 
-ADR-0001, ADR-0002, and ADR-0005 are accepted and partially or fully implemented. Other proposed ADRs are guidance for implementation and review, but must not be described as completed behavior.
+ADR-0001, ADR-0002, ADR-0004, and ADR-0006 are accepted. ADR-0006 supersedes the persisted-format portion of ADR-0005. ADR-0003 remains proposed; its implemented renderer behavior is documented in architecture and verified independently.
 
 ## Documentation maintenance
 
@@ -35,3 +35,5 @@ Update documentation in the same pull request when a change affects:
 - an acceptance criterion in the improvement specification.
 
 Prefer short, focused pages and links over duplicating large explanations. Keep the HTML specification standalone so it remains useful when opened directly from disk.
+
+Plugin contracts: [plugins.md](plugins.md). Delivery evidence: [implementation-status.md](implementation-status.md). ADR-0004 is accepted; ADR-0006 supersedes the persisted-format portion of ADR-0005.

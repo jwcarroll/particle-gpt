@@ -25,7 +25,21 @@ The development server uses `http://localhost:3000` and is configured to open a 
 | `npm run build`        | Run strict TypeScript checking and create a production bundle |
 | `npm run preview`      | Serve the production bundle locally                           |
 
-GitHub Actions runs `npm ci` followed by `npm run check` on every push and pull request with Node 24. Browser tests are not yet automated.
+GitHub Actions runs `npm ci` followed by `npm run check` on every push and pull request with Node 24. A separate Chromium job runs `npm run test:browser` against an optimized test build. Install the browser with `npx playwright install chromium` (CI uses `--with-deps`). Test-only fixture APIs are excluded from production bundles.
+
+## Browser and profiling commands
+
+- `npm run test:browser`: Playwright builds `dist-test`, starts Vite preview through global setup, tests, and closes the server in teardown. In-process server lifetime avoids Windows process-tree shutdown hangs.
+- `npm run profile -- profile-name`: five matched production-optimized profiling runs with JSON evidence under `docs/evidence`.
+- Optional `PLAYWRIGHT_BROWSERS_PATH` selects a stable browser cache when the execution host provides a different user profile per command. It must match during install and execution.
+- Test screenshots are written under ignored `test-results`; visual acceptance uses deterministic fixtures and pixel tolerances, not cross-OS golden images.
+
+## Browser and profiling commands
+
+- `npm run test:browser`: Playwright builds `dist-test`, starts Vite preview in global setup, tests, and closes the server during teardown. In-process server lifetime avoids Windows process-tree shutdown hangs.
+- `npm run profile -- profile-name`: five matched optimized profiling runs with JSON evidence under `docs/evidence`.
+- Optional `PLAYWRIGHT_BROWSERS_PATH` selects a stable browser cache when the host provides a different user profile per command. Use the same value during installation and execution.
+- Screenshots are written under ignored `test-results`; renderer assertions use deterministic fixtures and pixel tolerances rather than cross-OS golden images.
 
 ## Change workflow
 

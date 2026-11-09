@@ -1,6 +1,6 @@
 # ADR-0004: Self-describing and versioned plugin contracts
 
-- Status: Proposed
+- Status: Accepted
 - Date: 2026-09-04
 
 ## Context

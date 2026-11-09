@@ -1,3 +1,5 @@
+import { ColorConfig } from '../ColorConfig';
+import { Field } from '../Fields';
 /**
  * Benchmark system type definitions
  */
@@ -59,7 +61,7 @@ export interface EnvironmentInfo {
   timestamp: string;
 }
 
-export const BENCHMARK_MANIFEST_VERSION = 1;
+export const BENCHMARK_MANIFEST_VERSION = 2;
 
 export interface BenchmarkSurfaceManifest {
   logicalWidth: number;
@@ -78,12 +80,13 @@ export interface BenchmarkClockManifest {
 }
 
 export interface BenchmarkPluginManifest {
+  evaluationMode?: string;
   schemaVersion: number;
   state: Record<string, unknown>;
 }
 
 export interface BenchmarkRunManifest {
-  schemaVersion: typeof BENCHMARK_MANIFEST_VERSION;
+  schemaVersion: 1 | typeof BENCHMARK_MANIFEST_VERSION;
   scenario: BenchmarkScenario;
   renderer: {
     id: string;
@@ -103,6 +106,8 @@ export interface BenchmarkRunManifest {
     particleLifeSpan: { min: number; max: number };
     startingAngle: { min: number; max: number };
     fillStyle: string;
+    colors?: ColorConfig;
+    fields?: Field[];
     seed: number;
   };
   forces: Record<string, BenchmarkPluginManifest>;
@@ -119,6 +124,7 @@ export interface BenchmarkRunManifest {
     appVersion: string;
     revision: string;
   };
+  presentation?: { trails: boolean; arrows: boolean };
   compatibilityFingerprint: string;
 }
 
@@ -131,6 +137,7 @@ export interface BenchmarkRuntimeContext {
 }
 
 export interface BenchmarkResult {
+  outcome?: 'completed' | 'fps-limit' | 'population-ceiling';
   id: string;
   timestamp: string;
   userLabel?: string; // e.g., "baseline", "after optimization"

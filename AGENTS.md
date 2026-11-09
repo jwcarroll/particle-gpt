@@ -32,11 +32,11 @@ npm run preview
 
 The development server is configured for port 3000 and opens a browser. `npm run check` is the local CI gate: lint, formatting, unit tests, then strict TypeScript compilation and a Vite production build. The supported runtime is Node.js 24 or later, declared in `package.json` and `.nvmrc`. Release Please runs on `main` and turns Conventional Commits into reviewable release PRs, version tags, and GitHub releases; see `docs/versioning.md` before changing release files.
 
-`npm test` runs the Node-based TypeScript domain and benchmark tests once. `npm run test:watch` reruns them while files change. `npm run lint` rejects warnings, and `npm run format:check` verifies Prettier formatting. GitHub Actions runs `npm ci` and `npm run check` on pushes and pull requests. Browser tests are not yet automated.
+`npm test` runs the Node-based TypeScript domain and benchmark tests once. `npm run test:watch` reruns them while files change. `npm run lint` rejects warnings, and `npm run format:check` verifies Prettier formatting. GitHub Actions runs `npm ci` and `npm run check` on pushes and pull requests. Chromium browser tests run separately with `npm run test:browser`.
 
 ## Repository map
 
-- `src/main.ts` — composition root, animation loop, renderer selection, and all Tweakpane controls.
+- `src/main.ts` — composition root, animation loop, and surface/renderer events; `src/ui/` owns shell, inspector, and presentation.
 - `src/SimulationClock.ts` — fixed-step scheduling, interpolation timing, stall handling, and clock diagnostics.
 - `src/simulator.ts` — `World`, particle lifecycle, force integration, boundaries, and particle collisions.
 - `src/particle.ts`, `src/vector.ts`, `src/force.ts` — core domain primitives.
@@ -66,11 +66,12 @@ Preserve these unless a task explicitly changes them and updates the relevant AD
 
 Do not accidentally encode these as desired behavior:
 
-- Benchmark runs record a versioned workload manifest, reject incompatible comparisons/imports, and restore exact pre-run world state. The manifest currently uses schema version 1 for built-in plugin snapshots; self-describing plugin metadata is Phase 4 work.
-- Interactive clock overload diagnostics exist in code but are not yet exposed in the UI.
-- WebGL capability fallback, a shared background/device-pixel-ratio policy, a visible particle cap, normalized opaque particle colors, Canvas2D recovery from context loss, and deterministic parity fixtures now exist.
-- “Radial” force currently uses the swarm centroid and returns one uniform force vector for the whole frame.
-- Plugin state is registered, but plugin UI and WebGL shader wiring are still manually centralized.
+- Benchmark schema 2 includes color, field, presentation, and plugin metadata; schema-1 records remain history-only.
+- Controller controls expose pause/step/reset, seed, diagnostics, scene sharing, and benchmark locking.
+- Renderer parity/fallback and DPR policies are tested; real GPU performance and native 200% zoom require separate host evidence.
+- Radial schema 2 supports per-particle fields and explicit legacy uniform evaluation.
+- Catalog metadata generates plugin UI; GLSL implementations remain trusted and centralized.
+- High-speed collision tunneling remains characterized, not fixed. Canvas grouping and collision buckets still allocate.
 
 See the specification and proposed ADRs before fixing these, because several require coordinated contract changes rather than isolated patches.
 

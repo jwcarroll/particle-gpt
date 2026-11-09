@@ -4,6 +4,7 @@ export type RadialFalloff = 'none' | 'inverseDistance' | 'inverseSquare';
 
 export interface RadialForceState {
   enabled: boolean;
+  evaluationMode: 'uniform' | 'perParticle';
   centerX: number;
   centerY: number;
   strengthMps2: number;
@@ -17,6 +18,7 @@ type RadialOptions = {
 
 const DEFAULT_STATE: RadialForceState = {
   enabled: false,
+  evaluationMode: 'perParticle',
   centerX: 0,
   centerY: 0,
   strengthMps2: 10,
@@ -49,13 +51,22 @@ export class RadialForcePlugin implements ForcePlugin<RadialForceState> {
     this.state = { ...this.initialState };
   }
 
+  getParticleVector(_context: ForceContext, particle: { x: number; y: number }): ForceVector {
+    return this.evaluate(particle.x, particle.y);
+  }
+
   getVector(context: ForceContext): ForceVector {
+    if (this.state.evaluationMode === 'perParticle') return { x: 0, y: 0 };
+    return this.evaluate(context.particleCentroidX, context.particleCentroidY);
+  }
+
+  private evaluate(x: number, y: number): ForceVector {
     if (!this.state.enabled) {
       return { x: 0, y: 0 };
     }
 
-    const dx = this.state.centerX - context.particleCentroidX;
-    const dy = this.state.centerY - context.particleCentroidY;
+    const dx = this.state.centerX - x;
+    const dy = this.state.centerY - y;
     const distancePx = Math.sqrt(dx * dx + dy * dy);
     if (distancePx < 1e-6) {
       return { x: 0, y: 0 };

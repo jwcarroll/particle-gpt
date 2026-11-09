@@ -30,6 +30,11 @@ export interface SimulationClockDiagnostics {
   overloaded: boolean;
 }
 
+export interface SimulationClockSnapshot extends SimulationClockDiagnostics {
+  paused: boolean;
+  overloadDurationSeconds: number;
+}
+
 const DEFAULT_FIXED_STEP_SECONDS = 1 / 60;
 const DEFAULT_MAX_FRAME_DELTA_SECONDS = 0.1;
 const DEFAULT_MAX_STEPS_PER_CALLBACK = 8;
@@ -176,6 +181,27 @@ export class SimulationClock {
       discardedWallTimeSeconds: this.discardedWallTimeSeconds,
       overloaded: this.overloaded,
     };
+  }
+
+  snapshot(): SimulationClockSnapshot {
+    return {
+      ...this.getDiagnostics(),
+      paused: this.paused,
+      overloadDurationSeconds: this.overloadDurationSeconds,
+    };
+  }
+
+  restore(snapshot: SimulationClockSnapshot): void {
+    Object.assign(this, snapshot);
+    this.previousWallTimeMilliseconds = null;
+  }
+
+  step(update: (dt: number) => void): void {
+    if (!this.paused) throw new Error('Pause before stepping');
+    update(this.fixedStepSeconds);
+    this.simulationTimeSeconds += this.fixedStepSeconds;
+    this.totalPhysicsSteps++;
+    this.accumulatorSeconds = 0;
   }
 
   private createFrame(

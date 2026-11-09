@@ -3,7 +3,7 @@ import { BenchmarkScenario } from './types';
 export const SCENARIOS: Record<string, BenchmarkScenario> = {
   standard: {
     id: 'standard',
-    version: 1,
+    version: 2,
     name: 'Standard (1000 particles)',
     description: 'Baseline test with 1000 particles, no collisions',
     duration: 10,
@@ -18,7 +18,7 @@ export const SCENARIOS: Record<string, BenchmarkScenario> = {
   },
   stress: {
     id: 'stress',
-    version: 1,
+    version: 2,
     name: 'Stress Test (5000 particles)',
     description: 'High particle count stress test',
     duration: 10,
@@ -33,7 +33,7 @@ export const SCENARIOS: Record<string, BenchmarkScenario> = {
   },
   collision: {
     id: 'collision',
-    version: 1,
+    version: 2,
     name: 'Collision Test (500 particles)',
     description: 'Tests collision performance under close-contact particle dynamics',
     duration: 10,
@@ -48,7 +48,7 @@ export const SCENARIOS: Record<string, BenchmarkScenario> = {
   },
   ramp: {
     id: 'ramp',
-    version: 1,
+    version: 2,
     name: 'Find 60fps Limit',
     description: 'Ramps particles until FPS drops below 60 for 1 second',
     duration: 60, // Max duration, will stop early when limit found

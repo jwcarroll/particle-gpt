@@ -1,0 +1,219 @@
+{
+  "manifest": {
+    "schemaVersion": 2,
+    "scenario": {
+      "id": "stress",
+      "version": 2,
+      "name": "Stress Test (5000 particles)",
+      "description": "High particle count stress test",
+      "duration": 10,
+      "warmupDuration": 2,
+      "settings": {
+        "maxParticleCount": 5000,
+        "enableParticleCollision": false,
+        "seed": 1337,
+        "forcePresetId": "gravityOnly",
+        "shaderPresetId": "shadersOff"
+      }
+    },
+    "renderer": {
+      "id": "Direct",
+      "capability": "not-applicable"
+    },
+    "surface": {
+      "logicalWidth": 1280,
+      "logicalHeight": 720,
+      "devicePixelRatio": 1,
+      "backgroundColor": "#111820",
+      "backingWidth": 1280,
+      "backingHeight": 720
+    },
+    "clock": {
+      "fixedStepSeconds": 0.016666666666666666,
+      "maxFrameDeltaSeconds": 0.1,
+      "maxStepsPerCallback": 8,
+      "overloadThresholdSeconds": 0.5
+    },
+    "pixelsPerMeter": 100,
+    "world": {
+      "initialParticleCount": 5000,
+      "maxParticleCount": 5000,
+      "enableParticleCollision": false,
+      "emissionRate": 3000,
+      "elasticity": 0.7,
+      "particleRadius": {
+        "min": 2,
+        "max": 5
+      },
+      "particleVelocity": {
+        "min": 0,
+        "max": 500
+      },
+      "particleLifeSpan": {
+        "min": 5,
+        "max": 15
+      },
+      "startingAngle": {
+        "min": 0,
+        "max": 360
+      },
+      "fillStyle": "configured",
+      "colors": {
+        "mode": "palette",
+        "colors": ["#39a0ed", "#6ec6ff", "#9bdaf1"]
+      },
+      "fields": [],
+      "seed": 1337
+    },
+    "forces": {
+      "gravity": {
+        "schemaVersion": 1,
+        "evaluationMode": "uniform",
+        "state": {
+          "enabled": true,
+          "strengthMps2": 9.81,
+          "directionDeg": 90
+        }
+      },
+      "wind": {
+        "schemaVersion": 1,
+        "evaluationMode": "uniform",
+        "state": {
+          "enabled": false,
+          "baseMps2": 1.5,
+          "variabilityMps2": 1,
+          "directionDeg": 0,
+          "directionJitterDeg": 12,
+          "turbulenceHz": 0.25,
+          "gustChancePerMin": 8,
+          "gustStrengthMps2": 2.5,
+          "gustDurationSec": 1.8,
+          "seed": 1337,
+          "rngState": 1337,
+          "activeGustElapsedSec": 0,
+          "activeGustDurationSec": 0,
+          "activeGustStrengthMps2": 0
+        }
+      },
+      "radial": {
+        "schemaVersion": 2,
+        "evaluationMode": "perParticle",
+        "state": {
+          "enabled": false,
+          "evaluationMode": "perParticle",
+          "centerX": 0,
+          "centerY": 0,
+          "strengthMps2": 10,
+          "falloff": "inverseDistance"
+        }
+      }
+    },
+    "effects": {
+      "ageAlpha": {
+        "schemaVersion": 1,
+        "evaluationMode": "uniform",
+        "state": {
+          "enabled": true,
+          "curve": "linear",
+          "exponent": 2
+        }
+      },
+      "colorShift": {
+        "schemaVersion": 1,
+        "evaluationMode": "uniform",
+        "state": {
+          "enabled": false,
+          "speed": 0.8,
+          "amount": 0.35
+        }
+      },
+      "glow": {
+        "schemaVersion": 1,
+        "evaluationMode": "uniform",
+        "state": {
+          "enabled": false,
+          "radius": 0.2,
+          "intensity": 0.6
+        }
+      },
+      "outline": {
+        "schemaVersion": 1,
+        "evaluationMode": "uniform",
+        "state": {
+          "enabled": false,
+          "thickness": 0.12,
+          "strength": 0.7,
+          "color": "#ffffff"
+        }
+      },
+      "heatShimmer": {
+        "schemaVersion": 1,
+        "evaluationMode": "uniform",
+        "state": {
+          "enabled": false,
+          "frequency": 8,
+          "amplitude": 0.04,
+          "speed": 1.2,
+          "strength": 0.25
+        }
+      },
+      "velocityTint": {
+        "schemaVersion": 1,
+        "evaluationMode": "uniform",
+        "state": {
+          "enabled": false,
+          "minSpeed": 0,
+          "maxSpeed": 600,
+          "lowColor": "#3b82f6",
+          "highColor": "#ff7a18",
+          "strength": 0.6
+        }
+      }
+    },
+    "thresholds": {
+      "targetFps": 58,
+      "sustainedDropMilliseconds": 1000,
+      "frameDropMilliseconds": 20
+    },
+    "presentation": {
+      "trails": false,
+      "arrows": false
+    },
+    "quality": {
+      "sampleCount": 0
+    },
+    "build": {
+      "appVersion": "2.2.0",
+      "revision": "development"
+    },
+    "compatibilityFingerprint": "fnv1a-a15366bb"
+  },
+  "runs": [
+    {
+      "medianUpdateMs": 0.6999998092651367,
+      "medianRenderMs": 1,
+      "p95FrameMs": 16.700000000000728
+    },
+    {
+      "medianUpdateMs": 0.7000002861022949,
+      "medianRenderMs": 1.3000001907348633,
+      "p95FrameMs": 16.700000000000728
+    },
+    {
+      "medianUpdateMs": 0.6999998092651367,
+      "medianRenderMs": 1,
+      "p95FrameMs": 16.799999999999272
+    },
+    {
+      "medianUpdateMs": 0.6000003814697266,
+      "medianRenderMs": 1.0999999046325684,
+      "p95FrameMs": 16.799999999999272
+    },
+    {
+      "medianUpdateMs": 0.5999999046325684,
+      "medianRenderMs": 0.9000000953674316,
+      "p95FrameMs": 16.700000000000728
+    }
+  ],
+  "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/158.0.8127.18 Safari/537.36"
+}

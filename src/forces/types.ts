@@ -23,6 +23,7 @@ export interface ForcePlugin<TState extends ForcePluginState = ForcePluginState>
   getState(): TState;
   setState(next: Partial<TState>): void;
   reset(): void;
+  getParticleVector?(context: ForceContext, particle: { x: number; y: number }): ForceVector;
   getVector(context: ForceContext): ForceVector;
 }
 

@@ -4,12 +4,6 @@ import { Particle } from '../particle';
 import { ShaderRegistry } from '../shaders';
 import { parseOpaqueColor, RgbColor } from '../colors';
 import { getBackingHeight, getBackingWidth, RenderSurfaceConfig } from './RenderSurface';
-import { ColorShiftEffectPlugin } from '../shaders/effects/ColorShiftEffect';
-import { OutlineEffectPlugin } from '../shaders/effects/OutlineEffect';
-import { GlowEffectPlugin } from '../shaders/effects/GlowEffect';
-import { AgeAlphaEffectPlugin } from '../shaders/effects/AgeAlphaEffect';
-import { VelocityTintEffectPlugin } from '../shaders/effects/VelocityTintEffect';
-import { HeatShimmerEffectPlugin } from '../shaders/effects/HeatShimmerEffect';
 
 const VERTEX_SHADER = `
 attribute vec2 a_position;
@@ -184,35 +178,12 @@ export class WebGLRenderer implements ParticleRenderer {
   // Uniform locations
   private resolutionLoc: WebGLUniformLocation;
   private timeLoc: WebGLUniformLocation;
-  private colorShiftEnabledLoc: WebGLUniformLocation;
-  private colorShiftSpeedLoc: WebGLUniformLocation;
-  private colorShiftAmountLoc: WebGLUniformLocation;
-  private outlineEnabledLoc: WebGLUniformLocation;
-  private outlineThicknessLoc: WebGLUniformLocation;
-  private outlineStrengthLoc: WebGLUniformLocation;
-  private outlineColorLoc: WebGLUniformLocation;
-  private glowEnabledLoc: WebGLUniformLocation;
-  private glowRadiusLoc: WebGLUniformLocation;
-  private glowIntensityLoc: WebGLUniformLocation;
-  private ageAlphaEnabledLoc: WebGLUniformLocation;
-  private ageAlphaCurveLoc: WebGLUniformLocation;
-  private ageAlphaExponentLoc: WebGLUniformLocation;
-  private velocityTintEnabledLoc: WebGLUniformLocation;
-  private velocityTintMinSpeedLoc: WebGLUniformLocation;
-  private velocityTintMaxSpeedLoc: WebGLUniformLocation;
-  private velocityTintLowColorLoc: WebGLUniformLocation;
-  private velocityTintHighColorLoc: WebGLUniformLocation;
-  private velocityTintStrengthLoc: WebGLUniformLocation;
-  private heatShimmerEnabledLoc: WebGLUniformLocation;
-  private heatShimmerFrequencyLoc: WebGLUniformLocation;
-  private heatShimmerAmplitudeLoc: WebGLUniformLocation;
-  private heatShimmerSpeedLoc: WebGLUniformLocation;
-  private heatShimmerStrengthLoc: WebGLUniformLocation;
 
   // Instance data: x, y, radius, r, g, b, ageNorm, speed (8 floats per particle)
   private instanceData: Float32Array;
 
   private elapsedTime = 0;
+  private effectUniforms: { id: string; key: string; location: WebGLUniformLocation | null }[] = [];
   private compileStatus: 'OK' | 'Error' = 'OK';
   private backgroundColor: RgbColor = [0, 0, 0];
 
@@ -244,33 +215,19 @@ export class WebGLRenderer implements ParticleRenderer {
     // Get uniform locations
     this.resolutionLoc = gl.getUniformLocation(this.program, 'u_resolution')!;
     this.timeLoc = gl.getUniformLocation(this.program, 'u_time')!;
-    this.colorShiftEnabledLoc = gl.getUniformLocation(this.program, 'u_fxColorShiftEnabled')!;
-    this.colorShiftSpeedLoc = gl.getUniformLocation(this.program, 'u_fxColorShiftSpeed')!;
-    this.colorShiftAmountLoc = gl.getUniformLocation(this.program, 'u_fxColorShiftAmount')!;
-    this.outlineEnabledLoc = gl.getUniformLocation(this.program, 'u_fxOutlineEnabled')!;
-    this.outlineThicknessLoc = gl.getUniformLocation(this.program, 'u_fxOutlineThickness')!;
-    this.outlineStrengthLoc = gl.getUniformLocation(this.program, 'u_fxOutlineStrength')!;
-    this.outlineColorLoc = gl.getUniformLocation(this.program, 'u_fxOutlineColor')!;
-    this.glowEnabledLoc = gl.getUniformLocation(this.program, 'u_fxGlowEnabled')!;
-    this.glowRadiusLoc = gl.getUniformLocation(this.program, 'u_fxGlowRadius')!;
-    this.glowIntensityLoc = gl.getUniformLocation(this.program, 'u_fxGlowIntensity')!;
-    this.ageAlphaEnabledLoc = gl.getUniformLocation(this.program, 'u_fxAgeAlphaEnabled')!;
-    this.ageAlphaCurveLoc = gl.getUniformLocation(this.program, 'u_fxAgeAlphaCurve')!;
-    this.ageAlphaExponentLoc = gl.getUniformLocation(this.program, 'u_fxAgeAlphaExponent')!;
-    this.velocityTintEnabledLoc = gl.getUniformLocation(this.program, 'u_fxVelocityTintEnabled')!;
-    this.velocityTintMinSpeedLoc = gl.getUniformLocation(this.program, 'u_fxVelocityTintMinSpeed')!;
-    this.velocityTintMaxSpeedLoc = gl.getUniformLocation(this.program, 'u_fxVelocityTintMaxSpeed')!;
-    this.velocityTintLowColorLoc = gl.getUniformLocation(this.program, 'u_fxVelocityTintLowColor')!;
-    this.velocityTintHighColorLoc = gl.getUniformLocation(
-      this.program,
-      'u_fxVelocityTintHighColor',
-    )!;
-    this.velocityTintStrengthLoc = gl.getUniformLocation(this.program, 'u_fxVelocityTintStrength')!;
-    this.heatShimmerEnabledLoc = gl.getUniformLocation(this.program, 'u_fxHeatShimmerEnabled')!;
-    this.heatShimmerFrequencyLoc = gl.getUniformLocation(this.program, 'u_fxHeatShimmerFrequency')!;
-    this.heatShimmerAmplitudeLoc = gl.getUniformLocation(this.program, 'u_fxHeatShimmerAmplitude')!;
-    this.heatShimmerSpeedLoc = gl.getUniformLocation(this.program, 'u_fxHeatShimmerSpeed')!;
-    this.heatShimmerStrengthLoc = gl.getUniformLocation(this.program, 'u_fxHeatShimmerStrength')!;
+    for (const plugin of this.shaderRegistry?.list() ?? []) {
+      for (const key of Object.keys(plugin.getState())) {
+        const capitalize = (value: string) => value[0].toUpperCase() + value.slice(1);
+        this.effectUniforms.push({
+          id: plugin.id,
+          key,
+          location: gl.getUniformLocation(
+            this.program,
+            'u_fx' + capitalize(plugin.id) + capitalize(key),
+          ),
+        });
+      }
+    }
 
     // Create quad geometry (2 triangles forming a square from -1 to 1)
     this.quadBuffer = gl.createBuffer()!;
@@ -425,97 +382,22 @@ export class WebGLRenderer implements ParticleRenderer {
     gl.useProgram(this.program);
     gl.uniform1f(this.timeLoc, this.elapsedTime);
 
-    const colorShift = this.shaderRegistry?.get('colorShift');
-    if (colorShift instanceof ColorShiftEffectPlugin) {
-      const state = colorShift.getState();
-      gl.uniform1f(this.colorShiftEnabledLoc, state.enabled ? 1 : 0);
-      gl.uniform1f(this.colorShiftSpeedLoc, state.speed);
-      gl.uniform1f(this.colorShiftAmountLoc, state.amount);
-    } else {
-      gl.uniform1f(this.colorShiftEnabledLoc, 0);
-      gl.uniform1f(this.colorShiftSpeedLoc, 0.8);
-      gl.uniform1f(this.colorShiftAmountLoc, 0.35);
-    }
-
-    const outline = this.shaderRegistry?.get('outline');
-    if (outline instanceof OutlineEffectPlugin) {
-      const state = outline.getState();
-      gl.uniform1f(this.outlineEnabledLoc, state.enabled ? 1 : 0);
-      gl.uniform1f(this.outlineThicknessLoc, state.thickness);
-      gl.uniform1f(this.outlineStrengthLoc, state.strength);
-      const [r, g, b] = parseOpaqueColor(state.color);
-      gl.uniform3f(this.outlineColorLoc, r, g, b);
-    } else {
-      gl.uniform1f(this.outlineEnabledLoc, 0);
-      gl.uniform1f(this.outlineThicknessLoc, 0.12);
-      gl.uniform1f(this.outlineStrengthLoc, 0.7);
-      gl.uniform3f(this.outlineColorLoc, 1, 1, 1);
-    }
-
-    const glow = this.shaderRegistry?.get('glow');
-    if (glow instanceof GlowEffectPlugin) {
-      const state = glow.getState();
-      gl.uniform1f(this.glowEnabledLoc, state.enabled ? 1 : 0);
-      gl.uniform1f(this.glowRadiusLoc, state.radius);
-      gl.uniform1f(this.glowIntensityLoc, state.intensity);
-    } else {
-      gl.uniform1f(this.glowEnabledLoc, 0);
-      gl.uniform1f(this.glowRadiusLoc, 0.2);
-      gl.uniform1f(this.glowIntensityLoc, 0.6);
-    }
-
-    const ageAlpha = this.shaderRegistry?.get('ageAlpha');
-    if (ageAlpha instanceof AgeAlphaEffectPlugin) {
-      const state = ageAlpha.getState();
-      gl.uniform1f(this.ageAlphaEnabledLoc, state.enabled ? 1 : 0);
-      gl.uniform1f(this.ageAlphaExponentLoc, state.exponent);
-      let curveMode = 0;
-      if (state.curve === 'smoothstep') {
-        curveMode = 1;
-      } else if (state.curve === 'exponential') {
-        curveMode = 2;
+    const states = new Map<string, Record<string, unknown>>();
+    for (const plugin of this.shaderRegistry?.list() ?? [])
+      states.set(plugin.id, plugin.getState() as unknown as Record<string, unknown>);
+    for (const binding of this.effectUniforms) {
+      const value = states.get(binding.id)?.[binding.key];
+      if (typeof value === 'boolean') gl.uniform1f(binding.location, value ? 1 : 0);
+      else if (typeof value === 'number') gl.uniform1f(binding.location, value);
+      else if (binding.key === 'curve')
+        gl.uniform1f(
+          binding.location,
+          ['linear', 'smoothstep', 'exponential'].indexOf(String(value)),
+        );
+      else if (typeof value === 'string') {
+        const [r, g, b] = parseOpaqueColor(value);
+        gl.uniform3f(binding.location, r, g, b);
       }
-      gl.uniform1f(this.ageAlphaCurveLoc, curveMode);
-    } else {
-      gl.uniform1f(this.ageAlphaEnabledLoc, 1);
-      gl.uniform1f(this.ageAlphaCurveLoc, 0);
-      gl.uniform1f(this.ageAlphaExponentLoc, 2);
-    }
-
-    const velocityTint = this.shaderRegistry?.get('velocityTint');
-    if (velocityTint instanceof VelocityTintEffectPlugin) {
-      const state = velocityTint.getState();
-      gl.uniform1f(this.velocityTintEnabledLoc, state.enabled ? 1 : 0);
-      gl.uniform1f(this.velocityTintMinSpeedLoc, state.minSpeed);
-      gl.uniform1f(this.velocityTintMaxSpeedLoc, state.maxSpeed);
-      const [lowR, lowG, lowB] = parseOpaqueColor(state.lowColor);
-      const [highR, highG, highB] = parseOpaqueColor(state.highColor);
-      gl.uniform3f(this.velocityTintLowColorLoc, lowR, lowG, lowB);
-      gl.uniform3f(this.velocityTintHighColorLoc, highR, highG, highB);
-      gl.uniform1f(this.velocityTintStrengthLoc, state.strength);
-    } else {
-      gl.uniform1f(this.velocityTintEnabledLoc, 0);
-      gl.uniform1f(this.velocityTintMinSpeedLoc, 0);
-      gl.uniform1f(this.velocityTintMaxSpeedLoc, 600);
-      gl.uniform3f(this.velocityTintLowColorLoc, 0.231, 0.509, 0.965);
-      gl.uniform3f(this.velocityTintHighColorLoc, 1.0, 0.478, 0.094);
-      gl.uniform1f(this.velocityTintStrengthLoc, 0.6);
-    }
-
-    const heatShimmer = this.shaderRegistry?.get('heatShimmer');
-    if (heatShimmer instanceof HeatShimmerEffectPlugin) {
-      const state = heatShimmer.getState();
-      gl.uniform1f(this.heatShimmerEnabledLoc, state.enabled ? 1 : 0);
-      gl.uniform1f(this.heatShimmerFrequencyLoc, state.frequency);
-      gl.uniform1f(this.heatShimmerAmplitudeLoc, state.amplitude);
-      gl.uniform1f(this.heatShimmerSpeedLoc, state.speed);
-      gl.uniform1f(this.heatShimmerStrengthLoc, state.strength);
-    } else {
-      gl.uniform1f(this.heatShimmerEnabledLoc, 0);
-      gl.uniform1f(this.heatShimmerFrequencyLoc, 8);
-      gl.uniform1f(this.heatShimmerAmplitudeLoc, 0.04);
-      gl.uniform1f(this.heatShimmerSpeedLoc, 1.2);
-      gl.uniform1f(this.heatShimmerStrengthLoc, 0.25);
     }
   }
 

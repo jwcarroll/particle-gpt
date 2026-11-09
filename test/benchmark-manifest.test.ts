@@ -16,7 +16,7 @@ function createManifest(
   overrides: Partial<Omit<BenchmarkRunManifest, 'compatibilityFingerprint'>> = {},
 ): BenchmarkRunManifest {
   const manifest = {
-    schemaVersion: 1 as const,
+    schemaVersion: 2 as const,
     scenario: SCENARIOS.standard,
     renderer: { id: 'DoubleBuffered', capability: 'not-applicable' as const },
     surface: {
@@ -45,8 +45,11 @@ function createManifest(
       particleLifeSpan: { min: 5, max: 10 },
       startingAngle: { min: 0, max: 360 },
       fillStyle: '#00bfd1',
+      colors: { mode: 'solid' as const, color: '#00bfd1' },
+      fields: [],
       seed: 1337,
     },
+    presentation: { trails: false, arrows: false },
     forces: {},
     effects: {},
     thresholds: {
@@ -185,4 +188,60 @@ test('benchmark storage rejects malformed imports without partially saving them'
     setItem: (key, value) => values.set(key, value),
   });
   assert.deepEqual(restored.getAll(), [valid]);
+});
+
+test('different palettes cannot compare and legacy history stays readable and exportable', () => {
+  const first = createResult();
+  const secondManifest = createManifest();
+  secondManifest.world.colors = { mode: 'palette', colors: ['#ffffff', '#ff0000'] };
+  const second = createResult(withCompatibilityFingerprint(secondManifest));
+  assert.throws(
+    () => new BenchmarkComparison().compare(first, second),
+    BenchmarkCompatibilityError,
+  );
+  const legacy = createResult();
+  legacy.id = 'legacy';
+  legacy.manifest.schemaVersion = 1;
+  delete legacy.manifest.world.colors;
+  delete legacy.manifest.world.fields;
+  delete legacy.manifest.presentation;
+  legacy.manifest = withCompatibilityFingerprint(legacy.manifest);
+  const storage = new BenchmarkStorage(null);
+  assert.equal(storage.importFromJson(JSON.stringify([legacy, first])), 2);
+  const exported = JSON.parse(storage.exportToJson());
+  assert.deepEqual(exported[0], legacy);
+  assert.throws(() => new BenchmarkComparison().compare(legacy, first), /legacy history/);
+  assert.equal(storage.delete('legacy'), true);
+  assert.equal(storage.getAll().length, 1);
+});
+
+test('quota failures are visible while results remain exportable in memory', () => {
+  const storage = new BenchmarkStorage({
+    getItem: () => null,
+    setItem: () => {
+      throw new Error('Quota exceeded');
+    },
+  });
+  storage.save(createResult());
+  assert.match(storage.persistenceError!, /Quota/);
+  assert.equal(JSON.parse(storage.exportToJson()).length, 1);
+});
+
+test('unknown plugin schemas and missing clock fields reject the entire import', () => {
+  for (const change of [
+    (manifest: any) => {
+      manifest.forces.unknown = { schemaVersion: 99, evaluationMode: 'uniform', state: {} };
+    },
+    (manifest: any) => {
+      delete manifest.clock.fixedStepSeconds;
+    },
+  ]) {
+    const invalid = createResult();
+    invalid.id = 'invalid';
+    change(invalid.manifest);
+    invalid.manifest = withCompatibilityFingerprint(invalid.manifest);
+    const storage = new BenchmarkStorage(null);
+    assert.throws(() => storage.importFromJson(JSON.stringify([createResult(), invalid])));
+    assert.equal(storage.getAll().length, 0);
+  }
 });

@@ -21,6 +21,8 @@ import { Particle, ParticleSnapshot } from './particle';
 import { Vector } from './vector';
 import { ForceContext, ForceVector } from './forces';
 import { createSeededRandom, RandomSource } from './random';
+import { ColorConfig, createColorGenerator, validateColorConfig } from './ColorConfig';
+import { Field, sampleFields, validateFields } from './Fields';
 
 export const MAX_PARTICLE_COUNT = 50_000;
 export const MAX_PARTICLE_EMISSION_RATE = 1_000_000;
@@ -55,6 +57,9 @@ export interface WorldStateSnapshot {
   elapsedTime: number;
   emissionAccumulator: number;
   randomSource: RandomSource;
+  colors: ColorConfig | null;
+  fields: Field[];
+  emitterRemainders: Record<string, number>;
 }
 
 const defaultSettings: WorldSettings = {
@@ -88,6 +93,39 @@ export class World {
   private _elapsedTime = 0;
   private _emissionAccumulator = 0;
   private _randomSource: RandomSource = Math.random;
+  private _largestActiveRadius = 0;
+  private colors: ColorConfig | null = { mode: 'solid', color: '#0000ff' };
+  private fields: Field[] = [];
+  private emitterRemainders: Record<string, number> = Object.create(null);
+  private fieldVector = { x: 0, y: 0 };
+  private particleForceProvider:
+    ((context: ForceContext, particle: Particle) => ForceVector) | null = null;
+
+  setParticleForceProvider(
+    provider: (context: ForceContext, particle: Particle) => ForceVector,
+  ): void {
+    this.particleForceProvider = provider;
+  }
+
+  setColors(colors: ColorConfig): void {
+    validateColorConfig(colors);
+    this.colors = structuredClone(colors);
+    this._settings.fillStyle = createColorGenerator(colors);
+  }
+
+  getColors(): ColorConfig | null {
+    return structuredClone(this.colors);
+  }
+  getFields(): Field[] {
+    return structuredClone(this.fields);
+  }
+  setFields(fields: Field[]): void {
+    validateFields(fields);
+    this.fields = structuredClone(fields);
+    this.emitterRemainders = Object.fromEntries(
+      fields.map((f) => [f.id, this.emitterRemainders[f.id] ?? 0]),
+    );
+  }
 
   getSettings() {
     return { ...this._settings };
@@ -100,6 +138,9 @@ export class World {
       elapsedTime: this._elapsedTime,
       emissionAccumulator: this._emissionAccumulator,
       randomSource: this._randomSource,
+      colors: this.getColors(),
+      fields: this.getFields(),
+      emitterRemainders: { ...this.emitterRemainders },
     };
   }
 
@@ -113,6 +154,9 @@ export class World {
     this._elapsedTime = snapshot.elapsedTime;
     this._emissionAccumulator = snapshot.emissionAccumulator;
     this._randomSource = snapshot.randomSource;
+    this.colors = structuredClone(snapshot.colors);
+    this.fields = structuredClone(snapshot.fields);
+    this.emitterRemainders = { ...snapshot.emitterRemainders };
 
     for (const particleSnapshot of snapshot.particles) {
       const particle = this.getParticleFromPool();
@@ -122,6 +166,7 @@ export class World {
   }
 
   updateSettings(settings: Partial<WorldSettings>) {
+    validateWorldSettings({ ...this._settings, ...settings });
     if (settings.maxParticleCount !== undefined) {
       this.validatePopulationCount(settings.maxParticleCount);
     }
@@ -129,6 +174,12 @@ export class World {
       this.validateEmissionRate(settings.emissionRate);
     }
     this._settings = { ...this._settings, ...settings };
+    if (settings.fillStyle !== undefined) {
+      this.colors =
+        typeof settings.fillStyle === 'string'
+          ? { mode: 'solid', color: settings.fillStyle }
+          : null;
+    }
     if (this.activeParticles.length >= this._settings.maxParticleCount) {
       this._emissionAccumulator = 0;
     }
@@ -199,6 +250,7 @@ export class World {
 
     this._elapsedTime = 0;
     this._emissionAccumulator = 0;
+    this.emitterRemainders = Object.create(null);
 
     for (let i = 0; i < count; i++) {
       this.addRandomParticle();
@@ -244,21 +296,23 @@ export class World {
       totalForceY += this._forceList[f].y;
     }
 
+    const centroid = this.getParticleCentroid();
+    const context: ForceContext = {
+      dt,
+      elapsedTime: this._elapsedTime,
+      worldWidth: this._settings.width,
+      worldHeight: this._settings.height,
+      particleCount: this.activeParticles.length,
+      particleCentroidX: centroid.x,
+      particleCentroidY: centroid.y,
+    };
     if (this._forceProvider) {
-      const centroid = this.getParticleCentroid();
-      const provided = this._forceProvider({
-        dt,
-        elapsedTime: this._elapsedTime,
-        worldWidth: this._settings.width,
-        worldHeight: this._settings.height,
-        particleCount: this.activeParticles.length,
-        particleCentroidX: centroid.x,
-        particleCentroidY: centroid.y,
-      });
+      const provided = this._forceProvider(context);
       totalForceX += provided.x;
       totalForceY += provided.y;
     }
 
+    this._largestActiveRadius = 0;
     let i = 0;
     while (i < this.activeParticles.length) {
       const particle = this.activeParticles[i];
@@ -272,9 +326,18 @@ export class World {
       }
 
       particle.update(dt);
+      this._largestActiveRadius = Math.max(this._largestActiveRadius, particle.radius);
       // Integrate acceleration with dt so behavior is frame-rate independent.
       particle.velocity.x += totalForceX * dt;
       particle.velocity.y += totalForceY * dt;
+      sampleFields(this.fields, particle.x, particle.y, this.fieldVector);
+      particle.velocity.x += this.fieldVector.x * dt;
+      particle.velocity.y += this.fieldVector.y * dt;
+      if (this.particleForceProvider) {
+        const force = this.particleForceProvider(context, particle);
+        particle.velocity.x += force.x * dt;
+        particle.velocity.y += force.y * dt;
+      }
 
       this.handleParticleCollidingWithBoundingBox(
         particle,
@@ -365,6 +428,30 @@ export class World {
   }
 
   private refillParticles(dt: number) {
+    const emitters = this.fields.filter((field) => field.kind === 'emitter');
+    if (emitters.length) {
+      for (const emitter of emitters) {
+        const available = (this.emitterRemainders[emitter.id] ?? 0) + emitter.rate * dt;
+        const count = Math.min(
+          Math.floor(available + 1e-12),
+          Math.max(0, this._settings.maxParticleCount - this.particleCount),
+        );
+        this.emitterRemainders[emitter.id] =
+          this.particleCount + count >= this._settings.maxParticleCount ? 0 : available - count;
+        for (let i = 0; i < count; i++) {
+          this.addRandomParticle();
+          const p = this.activeParticles[this.activeParticles.length - 1];
+          const speed = Math.hypot(p.velocity.x, p.velocity.y);
+          const angle =
+            ((emitter.direction + (this._randomSource() - 0.5) * emitter.spread) * Math.PI) / 180;
+          p.x = p.previousX = emitter.x;
+          p.y = p.previousY = emitter.y;
+          p.velocity.x = Math.cos(angle) * speed;
+          p.velocity.y = Math.sin(angle) * speed;
+        }
+      }
+      return;
+    }
     const particleCount = this.activeParticles.length;
     const targetPopulation = this._settings.maxParticleCount;
     if (particleCount >= targetPopulation) {
@@ -424,7 +511,7 @@ export class World {
       return;
     }
     const particles = this.activeParticles;
-    const cellSize = Math.max(1, this._settings.maxParticleRadius * 2);
+    const cellSize = Math.max(1, this._largestActiveRadius * 2);
     this.buildCollisionGrid(particles, cellSize);
 
     for (let i = 0; i < particles.length; i++) {
@@ -526,4 +613,35 @@ export class World {
     p2.velocity.x -= impulseX;
     p2.velocity.y -= impulseY;
   }
+}
+
+export function validateWorldSettings(settings: WorldSettings): void {
+  for (const [key, value] of Object.entries(settings)) {
+    if (key === 'fillStyle' || key === 'enableParticleCollision') continue;
+    if (typeof value !== 'number' || !Number.isFinite(value) || value < 0)
+      throw new Error(`Invalid world setting: ${key}`);
+  }
+  if (
+    settings.width > 100000 ||
+    settings.height > 100000 ||
+    settings.elasticity > 1 ||
+    settings.maxParticleCount > MAX_PARTICLE_COUNT ||
+    !Number.isInteger(settings.maxParticleCount) ||
+    settings.emissionRate > MAX_PARTICLE_EMISSION_RATE ||
+    typeof settings.enableParticleCollision !== 'boolean'
+  )
+    throw new Error('World setting out of range');
+  for (const [min, max] of [
+    [settings.minParticleRadius, settings.maxParticleRadius],
+    [settings.minParticleVelocity, settings.maxParticleVelocity],
+    [settings.minParticleLifeSpan, settings.maxParticleLifeSpan],
+    [settings.minStartingAngle, settings.maxStartingAngle],
+  ])
+    if (min > max) throw new Error('Minimum exceeds maximum');
+  if (
+    settings.maxParticleRadius > 1000 ||
+    settings.maxParticleVelocity > 100000 ||
+    settings.maxStartingAngle > 360
+  )
+    throw new Error('World range exceeds supported limits');
 }

@@ -19,9 +19,10 @@ export class BenchmarkModule {
     forceRegistry?: ForceRegistry,
     shaderRegistry?: ShaderRegistry,
     getRuntimeContext?: () => BenchmarkRuntimeContext,
+    lifecycle?: { begin(): void; end(): void },
   ) {
     this.world = world;
-    this.runner = new BenchmarkRunner(forceRegistry, shaderRegistry, getRuntimeContext);
+    this.runner = new BenchmarkRunner(forceRegistry, shaderRegistry, getRuntimeContext, lifecycle);
     this.storage = new BenchmarkStorage();
     this.comparison = new BenchmarkComparison();
     this.ui = new BenchmarkUI(this.runner, this.storage, this.world);

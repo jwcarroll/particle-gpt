@@ -16,10 +16,13 @@
     "test": "tsx --test test/*.test.ts",
     "test:watch": "tsx --test --watch test/*.test.ts",
     "preview": "vite preview",
-    "vite": "vite"
+    "vite": "vite",
+    "test:browser": "playwright test",
+    "profile": "node scripts/profile.mjs"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
+    "@playwright/test": "^1.65.0",
     "@tweakpane/core": "^2.0.4",
     "@types/node": "^24.0.0",
     "eslint": "^10.9.1",

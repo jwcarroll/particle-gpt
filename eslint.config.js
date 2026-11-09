@@ -4,7 +4,14 @@ import tseslint from 'typescript-eslint';
 
 export default tseslint.config(
   {
-    ignores: ['dist/**', 'node_modules/**', 'docs/improvement-spec.html'],
+    ignores: [
+      'dist/**',
+      'dist-test/**',
+      'test-results/**',
+      'playwright-report/**',
+      'node_modules/**',
+      'docs/improvement-spec.html',
+    ],
   },
   eslint.configs.recommended,
   ...tseslint.configs.recommended,
@@ -15,10 +22,14 @@ export default tseslint.config(
     },
   },
   {
-    files: ['test/**/*.ts', 'vite.config.ts'],
+    files: ['test/**/*.ts', 'vite.config.ts', 'playwright.config.ts'],
     languageOptions: {
       globals: globals.node,
     },
+  },
+  {
+    files: ['scripts/**/*.mjs'],
+    languageOptions: { globals: { ...globals.node, ...globals.browser } },
   },
   {
     rules: {

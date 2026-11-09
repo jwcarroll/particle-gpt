@@ -10,6 +10,7 @@ export interface BenchmarkStorageBackend {
 
 export class BenchmarkStorage {
   private results: BenchmarkResult[] = [];
+  persistenceError: string | null = null;
 
   constructor(private readonly backend: BenchmarkStorageBackend | null = browserStorage()) {
     this.loadFromLocalStorage();
@@ -33,15 +34,19 @@ export class BenchmarkStorage {
 
   private saveToLocalStorage(): void {
     try {
-      this.backend?.setItem(STORAGE_KEY, JSON.stringify(this.results));
+      if (!this.backend)
+        throw new Error('Browser storage is unavailable; export this session to keep results');
+      this.backend.setItem(STORAGE_KEY, JSON.stringify(this.results));
+      this.persistenceError = null;
     } catch (e) {
-      console.warn('Failed to save benchmark results to localStorage:', e);
+      this.persistenceError = e instanceof Error ? e.message : String(e);
     }
   }
 
   save(result: BenchmarkResult): void {
     validateBenchmarkResult(result);
-    this.results.push(result);
+    if (!this.results.some((saved) => saved.id === result.id))
+      this.results.push(structuredClone(result));
     this.saveToLocalStorage();
   }
 
@@ -137,6 +142,7 @@ export class BenchmarkStorage {
         }
       };
 
+      input.oncancel = () => reject(new Error('Import cancelled'));
       input.click();
     });
   }
@@ -152,6 +158,9 @@ export class BenchmarkStorage {
 }
 
 function browserStorage(): BenchmarkStorageBackend | null {
-  if (typeof localStorage === 'undefined') return null;
-  return localStorage;
+  try {
+    return typeof localStorage === 'undefined' ? null : localStorage;
+  } catch {
+    return null;
+  }
 }
